@@ -13,6 +13,7 @@ var ADMINF = path.join(DATA, "admin.json");
 
 var store = require("./lib/secure-store")(DATA);
 var readJSON = store.readJSON, writeJSON = store.writeJSON;
+var devlog = require("./lib/device-log");
 function mkdirp(p){ if(!fs.existsSync(p)) fs.mkdirSync(p, {recursive:true}); }
 mkdirp(SEASONS);
 
@@ -88,7 +89,7 @@ function newSeason(id, name, start, end, classes, subjects, notices, students){
   return {id:id, name:name||id, window:{start:start, end:end}, classes:classes||[],
     subjects:subjects||SEED_SUBJECTS, notices:notices||SEED_NOTICES.slice(),
     srcNote:SEED_SRC_NOTE, paperNote:SEED_PAPER_NOTE,
-    students:students||[], overrides:{}, records:{}, tickets:{}, alerts:[],
+    students:students||[], overrides:{}, records:{}, tickets:{}, alerts:[], logs:[],
     archived:false, createdAt:nowISO()};
 }
 
@@ -158,7 +159,7 @@ function send(res, code, body, type){
     "X-Content-Type-Options":"nosniff",
     "X-Frame-Options":"DENY",
     "Referrer-Policy":"no-referrer",
-    "Content-Security-Policy":"default-src 'self' 'unsafe-inline' data: blob:; connect-src 'self'; frame-ancestors 'none'"
+    "Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'"
   });
   res.end(body);
 }
@@ -169,7 +170,19 @@ function body(req, cb){
   req.on("data", function(d){ b += d; if(b.length > 4e6) req.destroy(); });
   req.on("end", function(){ try{ cb(b ? JSON.parse(b) : {}); }catch(e){ cb({}); } });
 }
-function clientIP(req){ return (req.headers["x-forwarded-for"]||"").split(",")[0].trim() || req.socket.remoteAddress || "?"; }
+function clientIP(req){
+  /* 默认不信任 X-Forwarded-For：该头可由客户端伪造，否则失败锁定会被随意绕过。
+     部署在可信反向代理之后时，显式设置 TRUST_PROXY=1 才启用。 */
+  if(process.env.TRUST_PROXY === "1")
+    return String(req.headers["x-forwarded-for"]||"").split(",")[0].trim() || req.socket.remoteAddress || "?";
+  return req.socket.remoteAddress || "?";
+}
+function tokenOf(req, b){
+  if(req.headers["x-admin-token"]) return String(req.headers["x-admin-token"]);
+  if(b && b.token) return String(b.token);
+  var q = req.url.split("token=")[1];
+  return q ? decodeURIComponent(q.split("&")[0]) : "";
+}
 function checkToken(t, ip){
   var e = tokens[t];
   if(!e || !(e.exp > Date.now())) return false;
@@ -177,6 +190,44 @@ function checkToken(t, ip){
   return true;
 }
 function needAdmin(s, t, ip){ return checkToken(t, ip); }
+function reqCtx(req, ip, b){
+  return {ip:ip, device:devlog.parseUA(req.headers["user-agent"]),
+    clientHint:devlog.sanitizeHint(b && b.deviceHint)};
+}
+function pickedSummary(rec){
+  var out = [], pk = (rec && rec.picked) || {};
+  Object.keys(pk).forEach(function(k){
+    (pk[k]||[]).forEach(function(v){ out.push(String(v).split("|").pop()); });
+  });
+  if(rec && rec.other && rec.other.s) out.push("其他:" + rec.other.s + " " + (rec.other.u||""));
+  return out.join("；").slice(0, 500);
+}
+/* 内容指纹：心跳同步时若报考内容没变，就不重写记录、不刷提交时间、不计重填次数 */
+function contentOf(r){
+  return JSON.stringify([r&&r.ok, r&&r.errText, r&&r.sig1, r&&r.sig2,
+    r&&r.picked, r&&r.other, r&&r.agree]);
+}
+/* 学生提交记录：内容字段可写；身份、时间、权限字段一律由服务端生成，客户端说了不算 */
+function sanitizeRecord(st, sid, bRec, oldR, ip, ctx){
+  var r = {sid:sid, cls:st.cls, cn:st.cn, en:st.en, g:st.g, dob:st.dob};
+  ["ok","errText","sig1","sig2","picked","other","agree"].forEach(function(k){
+    if(bRec[k] !== undefined) r[k] = bRec[k];
+  });
+  r.subAt = nowISO();                                  // 服务端权威时间
+  r.modCount = oldR ? (oldR.modCount||0)+1 : 0;
+  r.unlocked = oldR ? !!oldR.unlocked : false;          // 只能由教务解锁
+  r.paper = oldR ? (oldR.paper||"未签") : "未签";        // 纸质签署由教务登记
+  r.reSign = oldR ? !!oldR.reSign : false;
+  r.versions = oldR ? (oldR.versions||[]).slice(-19) : [];
+  if(oldR) r.versions.push({subAt:oldR.subAt, txt:pickedSummary(oldR)});
+  r.ip = ip;
+  r.inputAt = nowISO();
+  var dl = devlog.deviceLabel(ctx.device);
+  r.lastDevice = dl;
+  r.devices = oldR ? (oldR.devices||[]).slice(-9) : [];
+  if(r.devices.indexOf(dl) < 0) r.devices.push(dl);
+  return r;
+}
 
 var server = http.createServer(function(req, res){
   var u = req.url.split("?")[0];
@@ -218,10 +269,15 @@ var server = http.createServer(function(req, res){
   if(u === "/api/verify" && req.method === "POST"){
     body(req, function(b){
       var s = cur();
+      var ctx = reqCtx(req, ip, b);
       var cls = String(b.cls||"").trim(), q = String(b.name||"").trim();
       var pool = (s.students||[]).filter(function(x){ return x.cls === cls; });
       var m = pool.filter(function(x){ return matchName(x, q); });
-      if(m.length !== 1){ pushAlert(s, "", false, ip); putSeason(s); json(res, {code:"nomatch"}); return; }
+      if(m.length !== 1){
+        pushAlert(s, "", false, ip);
+        devlog.logEvent(s, "", "verify_nomatch", ctx, "姓名或班级未匹配");
+        putSeason(s); json(res, {code:"nomatch"}); return;
+      }
       var st = merged(s, m[0].id);
       var nd = normDob(b.dob), ok = (nd === normDob(st.dob));
       pushAlert(s, st.id, ok, ip);
@@ -232,6 +288,7 @@ var server = http.createServer(function(req, res){
       }
       if(ok){
         failMap[ip] = {n:0, until:0};
+        devlog.logEvent(s, st.id, "verify_ok", ctx, "通过本人验证");
         putSeason(s);
         json(res, {code:"ok", sid:st.id, dob:st.dob, student:st,
           record:s.records[st.id]||null, ticket:s.tickets[st.id]||null});
@@ -239,6 +296,7 @@ var server = http.createServer(function(req, res){
       }
 
       /* ===== 以下均为验证失败：只返回脱敏线索，绝不返回真实凭据 ===== */
+      devlog.logEvent(s, st.id, "verify_fail", ctx, "出生日期不一致");
       var n2 = fm.n + 1, hit = n2 >= FAIL_MAX;
       failMap[ip] = hit ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0};
       var masked = {cn:maskCn(st.cn), cls:st.cls, g:st.g};
@@ -273,17 +331,37 @@ var server = http.createServer(function(req, res){
     body(req, function(b){
       var s = cur();
       var sid = String(b.sid||"");
+      var ctx = reqCtx(req, ip, b);
       var st = merged(s, sid);
-      if(!st || normDob(b.dob) !== normDob(st.dob)){ err(res, "身份校验未通过"); return; }
-      if(winStateOf(s) === "closed" && !(b.record && b.record.unlocked)){ err(res, "窗口已关闭，不再受理提交"); return; }
+      if(!st || normDob(b.dob) !== normDob(st.dob)){
+        devlog.logEvent(s, sid, "push_denied", ctx, "身份校验未通过");
+        putSeason(s);
+        err(res, "身份校验未通过"); return;
+      }
+      var oldR = s.records[sid];
+      /* 窗口是否可写，以服务端已存的解锁状态为准，绝不信客户端传来的 unlocked */
+      var unlockedByAdmin = !!(oldR && oldR.unlocked);
+      if(winStateOf(s) === "closed" && !unlockedByAdmin){
+        devlog.logEvent(s, sid, "push_closed", ctx, "窗口关闭后尝试写入");
+        putSeason(s);
+        err(res, "窗口已关闭，不再受理提交"); return;
+      }
       if(b.record){
-        var tk = s.tickets[sid];
-        if(tk && (tk.status === "wait" || tk.status === "fixed")){ err(res, "档案纠错未处理完毕，暂不能提交"); return; }
-        var oldR = s.records[sid];
-        b.record.sid = sid;
-        b.record.ip = ip;
-        b.record.modCount = oldR ? (oldR.modCount||0)+1 : 0;
-        s.records[sid] = b.record;
+        var contentChanged = !oldR || contentOf(oldR) !== contentOf(b.record);
+        if(contentChanged){
+          var tk = s.tickets[sid];
+          if(tk && (tk.status === "wait" || tk.status === "fixed")){
+            devlog.logEvent(s, sid, "push_blocked", ctx, "纠错工单未处理");
+            putSeason(s);
+            err(res, "档案纠错未处理完毕，暂不能提交"); return;
+          }
+          s.records[sid] = sanitizeRecord(st, sid, b.record, oldR, ip, ctx);
+          devlog.logEvent(s, sid, oldR ? "resubmit" : "submit", ctx,
+            devlog.deviceLabel(ctx.device));
+          /* 教务解锁后允许改一次，用完立即收回，避免反复修改 */
+          if(unlockedByAdmin) s.records[sid].unlocked = false;
+        }
+        /* 内容未变：只是心跳同步，不产生新的提交时间 */
       }
       /* 学生端只允许把「教务已更正」的工单复核为已确认，不能伪造或覆盖工单状态 */
       if(b.ticket){
@@ -291,10 +369,12 @@ var server = http.createServer(function(req, res){
         if(curTk && curTk.status === "fixed" && b.ticket.status === "closed"){
           curTk.status = "closed"; curTk.confirmedAt = nowISO();
           s.tickets[sid] = curTk;
+          devlog.logEvent(s, sid, "ticket_confirm", ctx, "本人复核已更正档案");
         }
       }
       putSeason(s);
-      json(res, {ok:true, record:s.records[sid]||null, ticket:s.tickets[sid]||null});
+      json(res, {ok:true, record:s.records[sid]||null, ticket:s.tickets[sid]||null,
+        serverTime:nowISO()});
     });
     return;
   }
@@ -317,26 +397,41 @@ var server = http.createServer(function(req, res){
     });
     return;
   }
+  /* 修改教务口令（数据已加密，须经接口改） */
+  if(u === "/api/admin/passwd" && req.method === "POST"){
+    body(req, function(b){
+      if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
+      var np = String(b.newPass||"");
+      if(np.length < 8){ err(res, "新口令至少 8 位"); return; }
+      var a = readJSON(ADMINF, {pass:"exam2026"});
+      a.pass = np; writeJSON(ADMINF, a);
+      var sc = cur();
+      devlog.logEvent(sc, "", "admin_passwd", reqCtx(req, ip, b), "教务修改后台口令");
+      putSeason(sc);
+      json(res, {ok:true});
+    });
+    return;
+  }
   if(u === "/api/admin/state" && req.method === "GET"){
-    var tk2 = decodeURIComponent((req.url.split("token=")[1]||"").split("&")[0]);
-    if(!checkToken(tk2, ip)){ err(res, "未登录或登录已过期"); return; }
+    if(!checkToken(tokenOf(req, null), ip)){ err(res, "未登录或登录已过期"); return; }
     var sc = cur();
     json(res, {ok:true, seasonId:sc.id, name:sc.name, seasonLabel:sc.name,
       win:winStateOf(sc), winText:winText(sc.window), window:sc.window,
       classes:sc.classes, subjects:sc.subjects, notices:sc.notices,
       srcNote:sc.srcNote, paperNote:sc.paperNote,
       students:sc.students, overrides:sc.overrides, records:sc.records,
-      tickets:sc.tickets, alerts:sc.alerts||[], seasons:seasonList()});
+      tickets:sc.tickets, alerts:sc.alerts||[], logs:sc.logs||[], seasons:seasonList()});
     return;
   }
   if(u === "/api/admin/save" && req.method === "POST"){
     body(req, function(b){
-      if(!checkToken(b.token, ip)){ err(res, "未登录或登录已过期"); return; }
+      if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
       var s2 = cur();
       if(b.records){ s2.records = b.records; }
       if(b.tickets){ s2.tickets = b.tickets; }
       if(b.overrides){ s2.overrides = b.overrides; }
       if(b.alerts){ s2.alerts = b.alerts; }
+      devlog.logEvent(s2, "", "admin_save", reqCtx(req, ip, b), "教务保存后台数据");
       putSeason(s2);
       json(res, {ok:true});
     });
@@ -345,7 +440,7 @@ var server = http.createServer(function(req, res){
   /* 考试季管理与名单导入 */
   if(u === "/api/admin/season" && req.method === "POST"){
     body(req, function(b){
-      if(!checkToken(b.token, ip)){ err(res, "未登录或登录已过期"); return; }
+      if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
       var act = b.action;
       if(act === "list"){ json(res, {ok:true, seasons:seasonList(), current:curId()}); return; }
       if(act === "switch"){
@@ -407,7 +502,7 @@ var server = http.createServer(function(req, res){
   err(res, "未知接口 "+u);
 });
 
-server.listen(PORT, function(){
+server.listen(PORT, "0.0.0.0", function(){
   console.log("------------------------------------------");
   console.log(" 学生报考系统已启动");
   console.log(" 本机访问： http://localhost:" + PORT);
@@ -416,5 +511,7 @@ server.listen(PORT, function(){
   console.log(" 数据加密：" + (store.encrypted ? "AES-256-GCM 已启用" : "未启用（EXAM_PLAINTEXT=1）"));
   if(store.encrypted) console.log(" 密钥来源：" + store.keySource + "  <- 请备份，切勿上传仓库");
   if(MIGRATED) console.log(" 已加密迁移历史明文文件：" + MIGRATED + " 个");
+  console.log(" 输入时间线：服务端时间 + 设备识别已启用（每季最多 " + devlog.LOG_MAX + " 条）");
+  if(process.env.TRUST_PROXY === "1") console.log(" 已启用 TRUST_PROXY：使用 X-Forwarded-For 取客户端 IP");
   console.log("------------------------------------------");
 });

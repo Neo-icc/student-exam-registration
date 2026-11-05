@@ -183,7 +183,11 @@ var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐
 /* ================= 状态 ================= */
 function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
 var S = freshState();
-var LSK = "reg_records_v2", LSU = "reg_current_v2", LSM = "reg_master_v3", LST = "reg_tickets_v3";
+var LSK = "reg_records_v2", LSU = "reg_current_v2", LSM = "reg_master_v3", LST = "reg_tickets_v3", LSLOG = "reg_logs_v1";
+var LOG_ACT = {verify_ok:"验证通过",verify_fail:"验证失败",verify_nomatch:"姓名未匹配",submit:"首次提交",
+  resubmit:"重新提交",input:"输入/同步",ticket_confirm:"复核已更正档案",admin_save:"教务保存",
+  push_denied:"越权写入被拒",push_closed:"窗口关闭后写入被拒",push_blocked:"工单未结被拒"};
+function logs(){ try{return JSON.parse(localStorage.getItem(LSLOG)||"[]")}catch(e){return []} }
 function load(){try{return JSON.parse(localStorage.getItem(LSK)||"{}")}catch(e){return {}}}
 function save(r){localStorage.setItem(LSK,JSON.stringify(r)); syncLater();}
 function saveCur(o){localStorage.setItem(LSU,JSON.stringify(o))}
@@ -208,8 +212,18 @@ var PAPER_NOTE = "本人已在线上核对并确认本人基本信息（姓名�
    离线（直接双击打开 file://）：自动退回单机演示模式，逻辑不变。 */
 var API_ON = false, ADMIN_TOKEN = "", SYNC_LOCK = false, SERVER_SEASON = "";
 var SEASON_LIST = [];
-function apiGet(p){ return fetch(p,{cache:"no-store"}).then(function(r){return r.json()}) }
-function apiPost(p,o){ return fetch(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o||{}),cache:"no-store"}).then(function(r){return r.json()}) }
+function authHeaders(base){ var x = base||{}; if(ADMIN_TOKEN) x["X-Admin-Token"] = ADMIN_TOKEN; return x; }
+function apiGet(p){ return fetch(p,{cache:"no-store",headers:authHeaders()}).then(function(r){return r.json()}) }
+function apiPost(p,o){ return fetch(p,{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify(o||{}),cache:"no-store"}).then(function(r){return r.json()}) }
+/* 客户端补充的设备信息：服务端单独存放并标注「可伪造」，主判定以服务端 UA 解析为准 */
+function deviceHint(){
+  try{
+    var d = navigator.userAgentData || {};
+    return {ua:String(navigator.userAgent||""), platform:String(navigator.platform||""),
+      screen:(screen.width||0)+"x"+(screen.height||0), dpr:String(window.devicePixelRatio||""),
+      model:String(d.model||""), mobile:String(d.mobile===undefined?"":d.mobile), vendor:String(d.vendor||"")};
+  }catch(e){ return {ua:""}; }
+}
 function syncTip(txt, bad){
   var el = document.getElementById("syncTip"); if(!el) return;
   el.textContent = txt||""; el.style.color = bad ? "#A32D2D" : "#5F5E5A";
@@ -267,10 +281,19 @@ function syncNow(){
   }
   if(S.sid && S.dobOK){
     var r = load(), t = tickets();
-    apiPost("/api/push",{sid:S.sid, dob:S.dobOK, record:r[S.sid]||null, ticket:t[S.sid]||null})
+    apiPost("/api/push",{sid:S.sid, dob:S.dobOK, record:r[S.sid]||null, ticket:t[S.sid]||null, deviceHint:deviceHint()})
       .then(function(res){
         if(res && res.error) syncTip("未同步："+res.error, true);
-        else syncTip("已保存到服务器 · "+new Date().toTimeString().slice(0,5));
+        else{
+          syncTip("已保存到服务器 · "+new Date().toTimeString().slice(0,5));
+          if(res && res.record && S.sid){
+            SYNC_LOCK = true;
+            var rr = load(); rr[S.sid] = res.record;
+            try{ localStorage.setItem(LSK, JSON.stringify(rr)); }catch(e){}
+            SYNC_LOCK = false;
+            if(S.step === 4) render();
+          }
+        }
       })
       .catch(function(){ syncTip("未同步：服务器未响应", true); });
   }
@@ -284,6 +307,7 @@ function applyAdminState(st){
   save(st.records||{});
   saveTickets(st.tickets||{});
   try{ localStorage.setItem(LSA, JSON.stringify(st.alerts||[])) }catch(e){}
+  try{ localStorage.setItem(LSLOG, JSON.stringify(st.logs||[])) }catch(e){}
   SYNC_LOCK = false;
   SEASON_LIST = st.seasons || [];
   SERVER_SEASON = st.seasonId || SERVER_SEASON;
@@ -323,6 +347,16 @@ function reviewCsvLines(){
     lines.push([s.cls,s.en,s.cn,fmtTime(T[id].fixedAt),fs,(T[id].note||"").replace(/[,\n]/g," ")].join(","));
   });
   return lines;
+}
+function logCsvLines(){
+  var L = ["时间(服务器),学号,班级,姓名,动作,IP,设备类型,品牌,型号,操作系统,浏览器,客户端屏幕,客户端机型,备注"];
+  logs().forEach(function(g){
+    var st = stu(g.sid)||{}, d = g.device||{}, ch = g.clientHint||{};
+    L.push([g.at,g.sid,st.cls||"",st.cn||"",LOG_ACT[g.action]||g.action,g.ip||"",
+      d.type||"",d.brand||"",d.model||"",d.os||"",d.browser||"",ch.screen||"",ch.model||"",g.detail||""]
+      .map(function(x){ return '"'+String(x==null?"":x).replace(/"/g,'""')+'"'; }).join(","));
+  });
+  return L;
 }
 function todoCsvLines(){
   var r = load(), lines = ["班级,未提交学生"];
@@ -555,7 +589,7 @@ function doVerify(){
   if(!v){ $("msg").innerHTML = '<div class="err">请输入出生日期（例：2009-03-21）。</div>'; return; }
   S.nameQ = q; S.dobTry = v; saveCur(S);
   var btn = $("btnVrf"); if(btn){ btn.disabled = true; btn.textContent = "正在验证…"; }
-  apiPost("/api/verify",{cls:S.cls, name:q, dob:v, nameOk:!!S.nameOk}).then(function(res){
+  apiPost("/api/verify",{cls:S.cls, name:q, dob:v, nameOk:!!S.nameOk, deviceHint:deviceHint()}).then(function(res){
     if(btn){ btn.disabled = false; btn.textContent = "验证并查看我的信息"; }
     if(!res || !res.code){ $("msg").innerHTML = '<div class="err">服务器未响应，请稍后重试。</div>'; return; }
     if(res.code === "nomatch"){
@@ -818,7 +852,8 @@ function doneHTML(){
   h += '<b>姓名（大写）</b><span class="en">'+esc(st.en)+'</span>';
   h += '<b>班级</b><span>'+esc(st.cls)+'</span>';
   h += '<b>信息核对</b><span>'+(rec.ok?'<span class="tag">本人确认无误</span>':'<span class="tag bad">已提纠错</span>')+'</span>';
-  h += '<b>提交时间</b><span>'+esc(fmtTime(rec.subAt))+'</span>';
+  h += '<b>提交时间</b><span>'+esc(fmtTime(rec.subAt))+'（服务器时间）</span>';
+  h += '<b>提交设备</b><span>'+esc(rec.lastDevice||"—")+'</span>';
   h += '<b>纸质签署</b><span>'+(rec.reSign?'<span class="tag bad">需重新签署</span>':(rec.paper==="已签"?'<span class="tag">已签署</span>':'<span class="tag wait">'+esc(rec.paper||"未签")+'</span>'))+'</span>';
   h += '</div></div>';
   h += '<div class="sum"><h4>报考内容</h4><ul>';
@@ -923,6 +958,23 @@ function adminHTML(){
     h += '<textarea id="rosTxt" placeholder="S001,IG1,张思远,ZHANG SIYUAN,男,2009-03-12&#10;S002,IG1,李佳怡,LI JIAYI,女,2009-07-04"></textarea>';
     h += '<p><button class="mini act" id="rosGo">导入名单</button> <button class="mini" id="seaArchive">归档当前季并导出三件套</button></p>';
     h += '<p class="hint">导入名单只允许在本季尚无提交记录时整体替换；已有提交后如需换名单，请新建考试季。</p></div>';
+  }
+  if(API_ON){
+    var LG = logs().slice().reverse();
+    h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">输入时间与终端设备记录</b>';
+    h += '<p class="hint" style="margin:6px 0 10px">每次验证、输入同步与提交均由服务端按<b>服务器时钟</b>记录，并从 User-Agent 解析设备。共 '+LG.length+' 条（每季上限 5000）。<b>客户端上报项可伪造，仅作参考。</b></p>';
+    h += '<p><button class="mini act" id="btnLogCsv">导出输入记录 CSV</button></p>';
+    h += '<div style="max-height:260px;overflow:auto"><table><tr><th>时间</th><th>学生</th><th>动作</th><th>设备</th><th>IP</th></tr>';
+    LG.slice(0,50).forEach(function(g){
+      var st = stu(g.sid)||{}, d = g.device||{};
+      h += '<tr><td class="mono">'+esc(fmtTime(g.at))+'</td><td>'+esc((st.cls||"")+" "+(st.cn||g.sid||"—"))+'</td>'
+        + '<td>'+esc(LOG_ACT[g.action]||g.action)+'</td><td>'+esc([d.type,d.brand,d.model,d.os].filter(Boolean).join(" · ")||"未知")+'</td>'
+        + '<td class="mono">'+esc(g.ip||"")+'</td></tr>';
+    });
+    h += '</table></div>';
+    if(LG.length>50) h += '<p class="hint">仅显示最近 50 条，完整记录请导出 CSV。</p>';
+    if(!LG.length) h += '<p class="hint">暂无记录。学生完成一次验证后即可在此看到时间与设备。</p>';
+    h += '</div>';
   }
   if(ADMIN_EDIT){
     var es = stu(ADMIN_EDIT), et = T[ADMIN_EDIT]||{};
@@ -1082,6 +1134,8 @@ function bindAdmin(){
     save(r); render();
   };
   $("btnCsv").onclick = function(){ download((SERVER_SEASON||"报考")+"-报考汇总.csv", summaryCsvLines().join("\n")); };
+  var bl = $("btnLogCsv");
+  if(bl) bl.onclick = function(){ download((SERVER_SEASON||"报考")+"-输入时间与设备.csv", logCsvLines().join("\n")); };
   /* ---- 考试季管理 ---- */
   var seaSwitch = $("seaSwitch");
   if(seaSwitch) seaSwitch.onclick = function(){
@@ -1149,7 +1203,7 @@ $("dbgAdmin").onclick = function(){
 $("dbgReset").onclick = function(){
   if(!confirm("清空本机缓存的演示数据？\n（服务器上的数据不会删除）")) return;
   localStorage.removeItem(LSK); localStorage.removeItem(LSU); localStorage.removeItem(LSM); localStorage.removeItem(LST);
-  localStorage.removeItem(LSF); localStorage.removeItem(LSA); clearProbe();
+  localStorage.removeItem(LSF); localStorage.removeItem(LSA); localStorage.removeItem(LSLOG); clearProbe();
   ADMIN_EDIT = null; ADMIN_TOKEN = "";
   try{ sessionStorage.removeItem("reg_self_"+(SERVER_SEASON||"")); }catch(e){}
   S = freshState();
