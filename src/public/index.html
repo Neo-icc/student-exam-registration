@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>学生报考确认系统 · 交互原型 v2</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#F1EFE8;color:#2C2C2A;font-size:15px;line-height:1.6}
+.wrap{max-width:430px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 0 24px rgba(0,0,0,.06)}
+.wrap.wide{max-width:980px}
+.hd{background:#185FA5;color:#fff;padding:14px 18px}
+.hd h1{margin:0;font-size:16px;font-weight:500}
+.hd p{margin:2px 0 0;font-size:12px;opacity:.85}
+.banner{background:#FAEEDA;color:#633806;font-size:12px;padding:8px 18px;border-bottom:1px solid #FAC775}
+.pad{padding:18px}
+.stepbar{display:flex;gap:4px;padding:12px 18px 0}
+.stepbar i{flex:1;height:4px;border-radius:2px;background:#D3D1C7}
+.stepbar i.on{background:#185FA5}
+h2.sec{font-size:15px;font-weight:500;margin:0 0 4px}
+p.hint{font-size:12px;color:#5F5E5A;margin:0 0 14px}
+label.f{display:block;font-size:13px;color:#444441;margin:14px 0 6px}
+select,input[type=text],textarea{width:100%;padding:11px 12px;border:1px solid #B4B2A9;border-radius:8px;font-size:15px;font-family:inherit;background:#fff;color:#2C2C2A}
+select:disabled,input:disabled{background:#F1EFE8;color:#888780}
+textarea{min-height:88px;resize:vertical}
+.sug{border:1px solid #B4B2A9;border-top:none;border-radius:0 0 8px 8px;margin-top:-6px;overflow:hidden}
+.sug div{padding:10px 12px;font-size:14px;border-top:1px solid #F1EFE8;cursor:pointer}
+.card{border:1px solid #B4B2A9;border-radius:12px;padding:14px;margin-bottom:12px}
+.ro{display:grid;grid-template-columns:96px 1fr;gap:8px 10px;font-size:14px}
+.ro b{font-weight:400;color:#5F5E5A}
+.ro span{font-weight:500;word-break:break-all}
+.ro span.en{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px}
+.lock{font-size:11px;color:#854F0B;background:#FAEEDA;display:inline-block;padding:2px 8px;border-radius:4px;margin-bottom:12px}
+.srcnote{background:#E6F1FB;border-left:3px solid #185FA5;color:#0C447C;font-size:12.5px;padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
+.idcard{border:1px solid #185FA5;background:#E6F1FB;border-radius:12px;padding:14px 16px;margin-bottom:12px;text-align:center}
+.idcard .lab{font-size:11px;color:#185FA5;letter-spacing:1px;margin-bottom:6px}
+.idcard .big{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:22px;font-weight:600;letter-spacing:1.5px;color:#0C447C;word-break:break-all;line-height:1.3}
+.idcard .cn{font-size:17px;font-weight:600;color:#2C2C2A;margin-top:4px}
+.idcard .sub{font-size:12.5px;color:#5F5E5A;margin-top:5px}
+.idcard .tip{font-size:12px;color:#A32D2D;margin-top:8px;background:#FBEAEA;border-radius:6px;padding:7px 9px}
+.radio{border:1px solid #B4B2A9;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.radio.on{border-color:#185FA5;background:#E6F1FB}
+.radio input{margin-top:3px;accent-color:#185FA5}
+.radio small{display:block;font-size:12px;color:#5F5E5A}
+.subj{border:1px solid #B4B2A9;border-radius:12px;margin-bottom:10px;overflow:hidden}
+.subj>.top{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer}
+.subj.sel{border-color:#185FA5}
+.subj.sel>.top{background:#E6F1FB}
+.subj .cb{width:19px;height:19px;border:2px solid #888780;border-radius:5px;flex:none}
+.subj.sel .cb{background:#185FA5;border-color:#185FA5;position:relative}
+.subj.sel .cb:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+.subj .nm{font-size:15px;font-weight:500}
+.subj .nm em{font-style:normal;font-size:12px;color:#5F5E5A;margin-left:6px}
+.body{display:none;padding:2px 14px 14px;border-top:1px dashed #D3D1C7}
+.subj.sel .body{display:block}
+.grp{margin-top:10px}
+.grp>b{font-size:12px;color:#444441;font-weight:500;display:block;margin-bottom:6px}
+.unit{display:flex;align-items:center;gap:10px;padding:9px 2px;font-size:14px;cursor:pointer;border-top:1px solid #F1EFE8}
+.unit .ub{width:18px;height:18px;border:2px solid #888780;border-radius:4px;flex:none}
+.unit.on .ub{background:#185FA5;border-color:#185FA5;position:relative}
+.unit.on .ub:after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+canvas.sign{width:100%;height:150px;border:1px dashed #888780;border-radius:10px;background:#fff;touch-action:none;display:block}
+.signrow{display:flex;justify-content:space-between;align-items:center;margin:6px 0 0}
+.signrow small{font-size:12px;color:#5F5E5A}
+.notice{border:1px solid #BA7517;background:#FAEEDA;border-radius:12px;padding:14px;margin-bottom:12px}
+.notice h4{margin:0 0 8px;font-size:14px;font-weight:500;color:#633806}
+.notice ol{margin:0;padding-left:20px;font-size:12.5px;color:#633806}
+.notice li{margin-bottom:5px}
+.agree{display:flex;gap:10px;align-items:flex-start;border:1px solid #B4B2A9;border-radius:10px;padding:12px 14px;cursor:pointer;font-size:14px}
+.agree.on{border-color:#185FA5;background:#E6F1FB}
+.agree input{margin-top:3px;accent-color:#185FA5}
+button{font-family:inherit;font-size:15px;border-radius:10px;padding:12px 16px;border:none;cursor:pointer}
+.btn{width:100%;background:#185FA5;color:#fff;margin-top:18px}
+.btn:disabled{background:#B4B2A9}
+.btn.gh{background:#fff;color:#185FA5;border:1px solid #185FA5}
+.btnrow{display:flex;gap:10px;margin-top:18px}
+.btnrow .btn{width:auto;margin-top:0;flex:1}
+.btnrow .btn.gh{flex:0 0 34%}
+.link{background:none;color:#185FA5;font-size:13px;padding:0;text-decoration:underline}
+.sum{border:1px solid #B4B2A9;border-radius:12px;padding:14px;margin-bottom:12px}
+.sum h4{margin:0 0 6px;font-size:14px;font-weight:500}
+.sum ul{margin:0;padding-left:18px;font-size:13px;color:#444441}
+.err{background:#FCEBEB;color:#A32D2D;font-size:13px;padding:10px 12px;border-radius:8px;margin-top:10px}
+.ok{background:#E1F5EE;color:#0F6E56;font-size:13px;padding:10px 12px;border-radius:8px;margin-top:10px}
+.warnbox{background:#FAEEDA;border:1px solid #FAC775;color:#633806;border-radius:12px;padding:16px;text-align:center;font-size:14px}
+.warnbox b{display:block;font-size:15px;margin-bottom:4px}
+.lockbox{background:#EEEDFE;border:1px solid #AFA9EC;color:#3C3489;border-radius:10px;padding:11px 13px;font-size:13px;margin-bottom:12px}
+.lockbox b{display:block;font-size:14px;margin-bottom:3px}
+.chg{background:#FAEEDA;color:#854F0B;font-size:11.5px;padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:400;white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{border:1px solid #D3D1C7;padding:6px 8px;text-align:left}
+th{background:#F1EFE8;font-weight:500;white-space:nowrap}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;background:#E1F5EE;color:#0F6E56}
+.tag.bad{background:#FCEBEB;color:#A32D2D}
+.tag.warn{background:#FAEEDA;color:#854F0B}
+.tag.wait{background:#F1EFE8;color:#5F5E5A}
+.grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{border:1px solid #B4B2A9;border-radius:12px;padding:12px}
+.stat b{display:block;font-size:24px;font-weight:500;color:#185FA5}
+.stat span{font-size:12px;color:#5F5E5A}
+.dbg{background:#F1EFE8;font-size:12px;padding:10px 18px;border-top:1px solid #D3D1C7}
+.dbg select{width:auto;display:inline-block;padding:4px 8px;font-size:12px}
+.foot{padding:14px 18px 30px;font-size:12px;color:#888780}
+.mini{padding:2px 6px;font-size:12px;border-radius:6px;border:1px solid #B4B2A9;background:#fff}
+.mini.act{background:#185FA5;color:#fff;border-color:#185FA5}
+@media print{.hd,.banner,.dbg,.stepbar,.noprint,.foot{display:none!important}body{background:#fff}.wrap{box-shadow:none;max-width:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="hd">
+    <h1 id="hdTitle">学生报考信息确认</h1>
+    <p id="hdsub">正在连接服务器…</p>
+  </div>
+  <div class="banner" id="hdBanner">正在载入本次报考配置…</div>
+  <div id="view"></div>
+  <div class="dbg noprint">
+    教务调试：
+    <select id="dbgWin">
+      <option value="open">时间窗口：开放中（演示）</option>
+      <option value="before">时间窗口：尚未开放</option>
+      <option value="closed">时间窗口：已截止</option>
+      <option value="auto">按真实时间判断</option>
+    </select>
+    <button class="link" id="dbgAdmin">教务后台</button>
+    <button class="link" id="dbgReset">清空本机缓存</button>
+    <span class="link" id="syncTip" style="cursor:default"></span>
+  </div>
+</div>
+
+<script>
+/* ================= 示例数据：待教务提供正式清单后替换 ================= */
+var CLASSES = ["IG1","IG2","AS1","AS2","AS3","A21","A22"];
+var STUDENTS = [
+  {id:"S001",cls:"IG1",cn:"张思远",en:"ZHANG SIYUAN",g:"男",dob:"2009-03-12"},
+  {id:"S002",cls:"IG1",cn:"李佳怡",en:"LI JIAYI",g:"女",dob:"2009-07-04"},
+  {id:"S003",cls:"IG2",cn:"王一诺",en:"WANG YINUO",g:"女",dob:"2009-01-22"},
+  {id:"S004",cls:"IG2",cn:"陈子涵",en:"CHEN ZIHAN",g:"男",dob:"2009-11-30"},
+  {id:"S005",cls:"AS1",cn:"刘雨桐",en:"LIU YUTONG",g:"女",dob:"2008-05-18"},
+  {id:"S006",cls:"AS1",cn:"赵子睿",en:"ZHAO ZIRUI",g:"男",dob:"2008-09-09"},
+  {id:"S007",cls:"AS2",cn:"孙嘉禾",en:"SUN JIAHE",g:"女",dob:"2008-02-14"},
+  {id:"S008",cls:"AS2",cn:"周慕辰",en:"ZHOU MUCHEN",g:"男",dob:"2008-04-26"},
+  {id:"S009",cls:"AS3",cn:"吴静怡",en:"WU JINGYI",g:"女",dob:"2008-08-15"},
+  {id:"S010",cls:"AS3",cn:"郑浩然",en:"ZHENG HAORAN",g:"男",dob:"2008-12-03"},
+  {id:"S011",cls:"A21",cn:"何思远",en:"HE SIYUAN",g:"男",dob:"2007-06-11"},
+  {id:"S012",cls:"A21",cn:"黄诗涵",en:"HUANG SHIHAN",g:"女",dob:"2007-10-20"},
+  {id:"S013",cls:"A22",cn:"徐乐言",en:"XU LEYAN",g:"女",dob:"2007-03-08"},
+  {id:"S014",cls:"A22",cn:"林嘉树",en:"LIN JIASHU",g:"男",dob:"2007-09-17"}
+];
+var SUBJECTS = [
+  {k:"math",n:"数学",en:"Mathematics",groups:[
+    {n:"",units:["P1-WMA11","P2-WMA12","P3-WMA13","P4-WMA14","S1-WST01","S2-WST02","S3-WST03","M1-WME01","M2-WME02","M3-WME03","F1-WFM01","F2-WFM02","F3-WFM03","D1-WDM11"]},
+    {n:"Cashin（合卷）",units:["基数Cashin-YMA01","进数Cashin-YFM01"]}
+  ]},
+  {k:"biz",n:"经商",en:"Business",groups:[
+    {n:"经济 Economics",units:["经济U1-WEC11","经济U2-WEC12","经济U3-WEC13","经济U4-WEC14","经济U1U2 Cashin-XEC11","经济U1U2U3U4 Cashin-YEC11"]},
+    {n:"商业 Business",units:["商业U1-WBS11","商业U2-WBS12","商业U3-WBS13","商业U4-WBS14","商业U1U2 Cashin-XBS11","商业U1U2U3U4 Cashin-YBS11"]},
+    {n:"会计 Accounting",units:["会计U1-WAC11","会计U2-WAC12","会计U1 Cashin-XAC11","会计U1U2 Cashin-YAC11"]}
+  ]},
+  {k:"sci",n:"科学",en:"Sciences",groups:[
+    {n:"物理 Physics",units:["物理U1-WPH11","物理U2-WPH12","物理U3-WPH13","物理U4-WPH14","物理U5-WPH15","物理U6-WPH16","物理123 Cashin-XPH11","物理123456 Cashin-YPH11"]},
+    {n:"化学 Chemistry",units:["化学U1-WCH11","化学U2-WCH12","化学U3-WCH13","化学U4-WCH14","化学U5-WCH15","化学U6-WCH16","化学123 Cashin-XCH11","化学123456 Cashin-YCH11"]},
+    {n:"生物 Biology",units:["生物U1-WBI11","生物U2-WBI12","生物U3-WBI13","生物U4-WBI14","生物U5-WBI15","生物U6-WBI16","生物123 Cashin-XBI11","生物123456 Cashin-YBI11"]}
+  ]},
+  {k:"oth",n:"其他",en:"Other",free:true}
+];
+/* 姓名大写统一规范：无论主数据存的是 ZHANG SAN 还是 Zhang San，一律按全大写展示与导出 */
+STUDENTS.forEach(function(s){ s.en = String(s.en||"").toUpperCase().replace(/\s+/g," ").trim(); });
+var WINDOW = {start:"2026-10-25T08:00", end:"2026-11-05T18:00"};
+var WIN_TEXT = "2026 年 10 月 25 日 08:00 至 11 月 5 日 18:00";
+var NOTICES = [
+  "本申请<b>每人仅可提交一次</b>。提交后本人不能自行修改或重复提交；确需变更的，须由本人向教务提出申请，经教务处理后方为有效。",
+  "出生日期是本系统核验本人身份的唯一凭据，请勿告知他人。本页访问已记录，非本人查询将被追查。",
+  "姓名大写拼音、性别、出生日期将用于<b>考试局报名及成绩证书</b>，须逐项核对；如有错误请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
+  "线上签名即确认本人已核阅并确认上述基本信息无误。班级纸质确认表<b>仅确认报考科目与单元</b>，班会期间须逐项核对后本人签名，纸质件留档。",
+  "未在规定时间内提交视为自动放弃本次报考；窗口关闭后系统锁定，仅可查看已提交内容，不再受理提交与修改。"
+];
+var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
+
+/* ================= 状态 ================= */
+var S = {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false};
+var LSK = "reg_records_v2", LSU = "reg_current_v2", LSM = "reg_master_v3", LST = "reg_tickets_v3";
+function load(){try{return JSON.parse(localStorage.getItem(LSK)||"{}")}catch(e){return {}}}
+function save(r){localStorage.setItem(LSK,JSON.stringify(r)); syncLater();}
+function saveCur(o){localStorage.setItem(LSU,JSON.stringify(o))}
+/* 主数据更正层：教务的更正不覆盖学籍原始表，单独存一层覆写，并留变更记录与版本号 */
+function master(){try{return JSON.parse(localStorage.getItem(LSM)||"{}")}catch(e){return {}}}
+function saveMaster(m){localStorage.setItem(LSM,JSON.stringify(m)); syncLater();}
+/* 纠错工单：status = wait（待教务处理）/ rejected（驳回）/ fixed（已更正待学生复核）/ closed（学生已复核通过） */
+function tickets(){try{return JSON.parse(localStorage.getItem(LST)||"{}")}catch(e){return {}}}
+function saveTickets(t){localStorage.setItem(LST,JSON.stringify(t)); syncLater();}
+function myTicket(id){return tickets()[id]||null}
+var TICKET_MAX = 2;
+var FLD = {en:"姓名大写", cn:"中文姓名", g:"性别", dob:"出生日期", cls:"班级"};
+var ADMIN_EDIT = null;
+/* 出生日期校验：同一设备连续失败 FAIL_MAX 次即锁定 FAIL_LOCK_MIN 分钟，并告警教务 */
+var FAIL_MAX = 3, FAIL_LOCK_MIN = 15;
+var LSF = "reg_fail_v3", LSA = "reg_alerts_v3";
+/* 纸质确认表建议声明：基本信息已在线上确认，纸质表只确认科目 */
+var PAPER_NOTE = "本人已在线上核对并确认本人基本信息（姓名大写拼写、性别、出生日期）无误；本次签字仅确认下列报考科目与单元，请逐项核对后签名。";
+
+/* ================= 服务端同步层 =================
+   在线：服务端是唯一数据源，本机 localStorage 只作缓存；
+   离线（直接双击打开 file://）：自动退回单机演示模式，逻辑不变。 */
+var API_ON = false, ADMIN_TOKEN = "", SYNC_LOCK = false, SERVER_SEASON = "";
+var SEASON_LIST = [];
+function apiGet(p){ return fetch(p,{cache:"no-store"}).then(function(r){return r.json()}) }
+function apiPost(p,o){ return fetch(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o||{}),cache:"no-store"}).then(function(r){return r.json()}) }
+function syncTip(txt, bad){
+  var el = document.getElementById("syncTip"); if(!el) return;
+  el.textContent = txt||""; el.style.color = bad ? "#A32D2D" : "#5F5E5A";
+}
+function applyBoot(b){
+  if(b.classes && b.classes.length) CLASSES = b.classes;
+  if(b.subjects && b.subjects.length) SUBJECTS = b.subjects;
+  if(b.notices && b.notices.length) NOTICES = b.notices;
+  if(b.srcNote) SRC_NOTE = b.srcNote;
+  if(b.paperNote) PAPER_NOTE = b.paperNote;
+  if(b.window){ WINDOW = b.window; }
+  if(b.winText) WIN_TEXT = b.winText;
+  var t = document.getElementById("hdTitle"), s = document.getElementById("hdsub"), bn = document.getElementById("hdBanner");
+  if(t) t.textContent = (b.name||"学生报考") + " · 报考信息确认";
+  if(s) s.textContent = "填报时间：" + (b.winText||"") + "　考试季编号：" + (b.seasonId||"");
+  if(bn) bn.textContent = "请核对本人信息后完成报考。本页仅显示通过身份验证后的本人档案。";
+}
+function bootServer(){
+  return apiGet("/api/boot").then(function(b){
+    if(!b || !b.ok) return false;
+    API_ON = true;
+    var old = ""; try{ old = localStorage.getItem("reg_season")||"" }catch(e){}
+    if(old && old !== b.seasonId){
+      [LSK,LSU,LSM,LST,LSF,LSA,LSP].forEach(function(k){ localStorage.removeItem(k) });
+      S = {step:0,cls:"",nameQ:"",sid:"",vrf:false,dobTry:"",dobOK:"",nameOk:false,probeWarn:false,ok:null,errText:"",sig1:"",picked:{},other:{s:"",u:""},sig2:"",subAt:"",agree:false,admin:false};
+    }
+    try{ localStorage.setItem("reg_season", b.seasonId) }catch(e){}
+    SERVER_SEASON = b.seasonId;
+    applyBoot(b);
+    syncTip("已连接服务器 · " + b.seasonId);
+    return true;
+  }).catch(function(){
+    API_ON = false;
+    syncTip("离线演示模式（数据只存在本机）", true);
+    var bn = document.getElementById("hdBanner");
+    if(bn) bn.textContent = "离线演示：未连接到服务器，数据只保存在本机浏览器，仅供流程演示。";
+    return false;
+  });
+}
+var _syncT = null;
+function syncLater(){ if(!API_ON || SYNC_LOCK) return; clearTimeout(_syncT); _syncT = setTimeout(syncNow, 300); }
+function syncNow(){
+  if(!API_ON || SYNC_LOCK) return;
+  if(ADMIN_TOKEN){
+    apiPost("/api/admin/save",{token:ADMIN_TOKEN, records:load(), tickets:tickets(), overrides:master(), alerts:alerts()})
+      .then(function(r){ syncTip(r && r.ok ? "已保存到服务器 · "+new Date().toTimeString().slice(0,5) : "保存失败", !(r&&r.ok)); })
+      .catch(function(){ syncTip("保存失败：服务器未响应", true); });
+    return;
+  }
+  if(S.sid && S.dobOK){
+    var r = load(), t = tickets();
+    apiPost("/api/push",{sid:S.sid, dob:S.dobOK, record:r[S.sid]||null, ticket:t[S.sid]||null})
+      .then(function(res){
+        if(res && res.error) syncTip("未同步："+res.error, true);
+        else syncTip("已保存到服务器 · "+new Date().toTimeString().slice(0,5));
+      })
+      .catch(function(){ syncTip("未同步：服务器未响应", true); });
+  }
+}
+/* 把服务端整季数据灌进本机缓存，之后原有界面逻辑无需改动 */
+function applyAdminState(st){
+  SYNC_LOCK = true;
+  STUDENTS = (st.students||[]).map(function(x){ return Object.assign({}, x); });
+  STUDENTS.forEach(function(s){ s.en = String(s.en||"").toUpperCase().replace(/\s+/g," ").trim(); });
+  saveMaster(st.overrides||{});
+  save(st.records||{});
+  saveTickets(st.tickets||{});
+  try{ localStorage.setItem(LSA, JSON.stringify(st.alerts||[])) }catch(e){}
+  SYNC_LOCK = false;
+  SEASON_LIST = st.seasons || [];
+  SERVER_SEASON = st.seasonId || SERVER_SEASON;
+  try{ localStorage.setItem("reg_season", SERVER_SEASON) }catch(e){}
+  applyBoot(st);
+}
+function adminRefresh(){
+  if(!ADMIN_TOKEN) return Promise.resolve(false);
+  return apiGet("/api/admin/state?token="+encodeURIComponent(ADMIN_TOKEN)).then(function(st){
+    if(!st || !st.ok){ alert("读取失败，请重新登录"); ADMIN_TOKEN=""; return false; }
+    applyAdminState(st); return true;
+  });
+}
+function download(name, text){
+  var blob = new Blob(["\ufeff"+text], {type:"text/csv;charset=utf-8"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+}
+function summaryCsvLines(){
+  var r = load(), T2 = tickets();
+  var lines = ["班级,姓名大写,中文姓名,性别,出生日期,信息核对,纠错内容,档案状态,出生日期校验,更正轮次,复核时间,报考内容,提交时间,重填次数,纸质签署,需重新签署"];
+  Object.keys(r).forEach(function(id){
+    var rec = r[id], s = stu(id), tk = T2[id];
+    var arch = s._ver>1 ? "已更正 v"+s._ver : "原档 v1";
+    lines.push([s.cls,s.en,s.cn,s.g,s.dob,rec.ok?"无误":"有误",(rec.errText||"").replace(/[,\n]/g," "),
+      arch, (tk&&tk.auto)?"曾存疑·已核实":"通过", tk?(tk.round||1):0, tk&&tk.confirmedAt?fmtTime(tk.confirmedAt):"",
+      pickedText(rec.picked,rec.other).join("；").replace(/,/g,"、"),fmtTime(rec.subAt),rec.modCount||0,rec.paper||"未签",rec.reSign?"是":"否"].join(","));
+  });
+  return lines;
+}
+function reviewCsvLines(){
+  var T = tickets(), lines = ["班级,姓名,中文姓名,更正时间,更正字段,处理依据"];
+  Object.keys(T).forEach(function(id){
+    if(T[id].status!=="fixed") return;
+    var s = stu(id), ch = T[id].chg||{};
+    var fs = Object.keys(ch).map(function(k){ return (FLD[k]||k)+"："+ch[k].from+"→"+ch[k].to }).join("；");
+    lines.push([s.cls,s.en,s.cn,fmtTime(T[id].fixedAt),fs,(T[id].note||"").replace(/[,\n]/g," ")].join(","));
+  });
+  return lines;
+}
+function todoCsvLines(){
+  var r = load(), lines = ["班级,未提交学生"];
+  var byC = {};
+  allStu().forEach(function(s){ if(!r[s.id]) (byC[s.cls]=byC[s.cls]||[]).push(s.cn) });
+  Object.keys(byC).forEach(function(c){ lines.push([c, byC[c].join("、")].join(",")) });
+  return lines;
+}
+/* 教务登录并拉取整季数据 */
+function adminLogin(pass){
+  return apiPost("/api/admin/login",{pass:pass}).then(function(r){
+    if(!r || !r.ok){ alert(r && r.error ? r.error : "登录失败"); return false; }
+    ADMIN_TOKEN = r.token;
+    return apiGet("/api/admin/state?token="+encodeURIComponent(r.token)).then(function(st){
+      if(!st || !st.ok){ alert("读取后台数据失败"); ADMIN_TOKEN=""; return false; }
+      applyAdminState(st);
+      return true;
+    });
+  }).catch(function(){ alert("无法连接服务器"); return false; });
+}
+function winState(){
+  var m = document.getElementById("dbgWin").value;
+  if(m!=="auto") return m;
+  var n = Date.now();
+  if(n < new Date(WINDOW.start).getTime()) return "before";
+  if(n > new Date(WINDOW.end).getTime()) return "closed";
+  return "open";
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function $(id){return document.getElementById(id)}
+function stu(id){
+  var b = STUDENTS.filter(function(s){return s.id===id})[0]; if(!b) return null;
+  var o = master()[id];
+  var s = o ? Object.assign({}, b, o) : Object.assign({}, b);
+  s.en = String(s.en||"").toUpperCase().replace(/\s+/g," ").trim();
+  s._chg = (o && o._chg) || null;
+  s._ver = (o && o._ver) || 1;
+  return s;
+}
+function allStu(){ return STUDENTS.map(function(s){return stu(s.id)}) }
+function recOf(id){var r=load();return r[id]||null}
+/* ---- 出生日期校验相关 ---- */
+function normDob(v){
+  var p = String(v||"").trim().split(/\D+/).filter(function(x){return x!==""});
+  if(p.length===3 && p[0].length===4 && p[1].length<=2 && p[2].length<=2){
+    var mm = p[1], dd = p[2];
+    return p[0]+"-"+(mm.length<2?"0"+mm:mm)+"-"+(dd.length<2?"0"+dd:dd);
+  }
+  var d = String(v||"").replace(/\D/g,"");
+  if(d.length===8) return d.slice(0,4)+"-"+d.slice(4,6)+"-"+d.slice(6,8);
+  return String(v||"").trim();
+}
+function maskEn(s){ return String(s||"").trim().split(/\s+/).map(function(w){ return w ? w[0]+new Array(w.length).join("*") : "" }).join(" ") }
+function maskCn(s){ var t=String(s||"").trim(); return t.length<=1 ? t : t[0]+new Array(t.length).join("*") }
+function failInfo(){ try{ var f=JSON.parse(localStorage.getItem(LSF)||"null"); return (f&&f.n!==undefined)?f:{n:0,until:0} }catch(e){ return {n:0,until:0} } }
+function saveFail(f){ localStorage.setItem(LSF,JSON.stringify(f)) }
+function alerts(){ try{return JSON.parse(localStorage.getItem(LSA)||"[]")}catch(e){return []} }
+function pushAlert(sid,ok){ var a=alerts(); a.unshift({at:new Date().toISOString(), sid:sid, ok:!!ok}); if(a.length>60) a.length=60; localStorage.setItem(LSA,JSON.stringify(a)); }
+/* 同一设备短时间内查询不同学生档案的数量（探测名单的兜底监控） */
+var PROBE_MAX = 4, PROBE_WIN_MIN = 10, LSP = "reg_probe_v1";
+function pushProbe(sid){
+  var d = {}; try{ d = JSON.parse(localStorage.getItem(LSP)||"{}") }catch(e){ d={} }
+  if(!d.t || Date.now()-d.t > PROBE_WIN_MIN*60000) d = {t:Date.now(), sids:[]};
+  if(d.sids.indexOf(sid)<0) d.sids.push(sid);
+  localStorage.setItem(LSP, JSON.stringify(d));
+  return d.sids.length;
+}
+function clearProbe(){ localStorage.removeItem(LSP) }
+function probeState(){ try{ return JSON.parse(localStorage.getItem(LSP)||"null") }catch(e){ return null } }
+function fmtTime(iso){
+  if(!iso) return "";
+  var d = new Date(iso), p = function(n){return n<10?"0"+n:""+n};
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function pickedText(picked,other){
+  var txt = [];
+  Object.keys(picked||{}).forEach(function(k){
+    var sb = SUBJECTS.filter(function(x){return x.k===k})[0]; if(!sb) return;
+    if(sb.free){ txt.push("其他："+((other||{}).s||"")); return; }
+    var g={};
+    (picked[k]||[]).forEach(function(key){var p=key.split("|");var gn=sb.groups[+p[1]].n||sb.n;(g[gn]=g[gn]||[]).push(p.slice(2).join("|"))});
+    Object.keys(g).forEach(function(gn){ txt.push(gn+"（"+g[gn].join("、")+"）") });
+  });
+  return txt;
+}
+
+/* ================= 渲染 ================= */
+function render(){
+  $("app").className = "wrap" + (S.admin?" wide":"");
+  window._cv2 = null;
+  var v = $("view");
+  if(S.admin){ v.innerHTML = adminHTML(); bindAdmin(); return; }
+  /* 教务已更正 / 已驳回：强制重新做一次出生日期校验，然后回到档案页复核 */
+  var tk0 = S.sid ? myTicket(S.sid) : null;
+  if(tk0 && (tk0.status==="fixed" || tk0.status==="rejected") && (S.step>1 || S.vrf)){ S.step=0; S.vrf=false; saveCur(S); }
+  /* 窗口锁定：截止后学生端只能查看已提交内容，不能填写或提交 */
+  if(winState()==="closed" && S.step!==0){
+    if(S.sid && recOf(S.sid)){ v.innerHTML = doneHTML(); bindDone(); return; }
+    v.innerHTML = closedHTML(); bindClosed(); return;
+  }
+  if(S.step===0){ v.innerHTML = enterHTML(); bindEnter(); return; }
+  if(S.step===1){ v.innerHTML = stepBar(1)+infoHTML(); bindInfo(); return; }
+  if(S.step===2){ v.innerHTML = stepBar(2)+subjectHTML(); bindSubject(); return; }
+  if(S.step===3){ v.innerHTML = stepBar(3)+previewHTML(); bindPreview(); return; }
+  v.innerHTML = doneHTML(); bindDone();
+}
+function stepBar(n){
+  var h = '<div class="stepbar">';
+  for(var i=1;i<=4;i++) h += '<i class="'+(i<=n?"on":"")+'"></i>';
+  return h+'</div>';
+}
+
+/* ---- 步骤 0：确认身份（班级 + 姓名 + 出生日期，一步完成） ---- */
+function enterHTML(){
+  var w = winState();
+  if(w==="before") return '<div class="pad"><div class="warnbox"><b>本次报考尚未开放</b>开放时间：'+WIN_TEXT+'<br>届时本页可直接填写</div></div>';
+  var h = '<div class="pad"><h2 class="sec">第 1 步 · 确认身份</h2>';
+  if(w==="closed"){
+    h += '<div class="lockbox"><b>填报窗口已关闭（'+WIN_TEXT+'）</b>'
+      + '系统已锁定，不再受理新的提交与修改。已提交的同学可查询并打印本人的最终报考信息；未提交的同学请联系教务处理。</div>';
+  }
+  h += '<p class="hint">请准确输入完整姓名，再输入本人出生日期。<b>两项均验证通过后，才会显示你的档案信息。</b></p>';
+  h += '<label class="f">所在班级</label><select id="selCls"><option value="">请选择班级</option>';
+  CLASSES.forEach(function(c){h += '<option value="'+c+'"'+(S.cls===c?" selected":"")+'>'+c+'</option>'});
+  h += '</select><label class="f">姓名</label>';
+  h += '<input type="text" id="inpName" placeholder="请输入完整姓名" autocomplete="off" value="'+esc(S.nameQ||"")+'"'+(S.cls?"":" disabled")+'>';
+  h += '<label class="f">出生日期（用于身份验证）</label>';
+  h += '<input type="text" id="inpDob" placeholder="例：2009-03-21" autocomplete="off" value="'+esc(S.dobTry)+'">';
+  h += '<p class="hint" style="margin:-4px 0 10px">请填写与<b>身份证</b>一致的出生日期；不确定时可查看本人身份证。</p>';
+  var f0 = failInfo();
+  if(f0.until && f0.until > Date.now())
+    h += '<div class="err">本设备验证失败次数过多，已暂时锁定至 '+esc(fmtTime(new Date(f0.until).toISOString()))+'。请稍后重试，或携带证件到教务线下核实。</div>';
+  else if(f0.n>0)
+    h += '<p class="hint">本设备已失败 '+f0.n+' 次，还可尝试 '+(FAIL_MAX-f0.n)+' 次；超过将暂时锁定 '+FAIL_LOCK_MIN+' 分钟。</p>';
+  h += '<div id="msg"></div>';
+  h += '<button class="btn" id="btnVrf">验证并查看我的信息</button>';
+  h += '<div class="foot">出生日期是进入本人档案的唯一凭据，请不要告知他人。本页访问已记录，非本人查询将被追查。</div></div>';
+  return h;
+}
+function bindEnter(){
+  $("selCls").onchange = function(){ S.cls=this.value; S.nameQ=""; S.sid=""; S.vrf=false; S.dobTry=""; S.nameOk=false; saveCur(S); render(); var n=$("inpName"); if(n) n.focus(); };
+  $("inpName").oninput = function(){ S.nameQ=this.value; S.sid=""; S.nameOk=false; saveCur(S); };
+  $("inpDob").oninput = function(){ S.dobTry=this.value; saveCur(S); };
+  $("btnVrf").onclick = doVerify;
+}
+/* 姓名已匹配、出生日期不匹配时的排错区：给出打码线索，由本人确认后再建纠错工单 */
+function nameCheckHTML(st, nd){
+  var h = '<div class="err">姓名与出生日期不匹配（你填写的是 '+esc(nd)+'）。</div>';
+  h += '<div class="lockbox"><b>请先核对姓名是否输错</b>系统匹配到的是：'+esc(maskCn(st.cn))+' · '+esc(st.cls)+' · '+esc(st.g)
+    + '。<br>若这不是你，请返回上方修改姓名；若确是你，说明学籍记录的出生日期可能有问题，可提交教务核实。</div>';
+  h += '<div class="agree'+(S.nameOk?" on":"")+'" id="nmOk"><input type="checkbox" id="nmOkCb"'+(S.nameOk?" checked":"")+'><div>我确认姓名与班级输入无误，是学籍记录的出生日期需要核实</div></div>';
+  h += '<button class="btn" id="btnNameOk"'+(S.nameOk?"":" disabled")+'>确认姓名无误，提交核实并继续</button>';
+  return h;
+}
+function bindNameCheck(){
+  $("nmOk").onclick = function(){
+    S.nameOk = !S.nameOk; $("nmOkCb").checked = S.nameOk;
+    $("nmOk").classList.toggle("on",S.nameOk); $("btnNameOk").disabled = !S.nameOk; saveCur(S);
+  };
+  $("nmOkCb").onclick = function(e){ e.stopPropagation(); };
+  $("btnNameOk").onclick = doVerify;
+}
+/* 离线单机模式的验证逻辑（保留，作为无法连服务器时的兜底） */
+function doVerifyLocal(){
+  var f = failInfo();
+  if(f.until && f.until > Date.now()){ $("msg").innerHTML = '<div class="err">本设备已暂时锁定，请在 '+esc(fmtTime(new Date(f.until).toISOString()))+' 后重试，或携带证件到教务线下核实。</div>'; return; }
+  if(!S.cls){ $("msg").innerHTML = '<div class="err">请先选择所在班级。</div>'; return; }
+  var q = (($("inpName").value)||"").trim();
+  if(!q){ $("msg").innerHTML = '<div class="err">请输入完整姓名。</div>'; return; }
+  var pool = allStu().filter(function(s){return s.cls===S.cls});
+  var m = pool.filter(function(s){return s.cn===q || s.en.replace(/\s+/g,"")===q.toUpperCase().replace(/\s+/g,"")});
+  if(m.length!==1){
+    $("msg").innerHTML = '<div class="err">未匹配到记录。请核对班级与姓名，并确认已输入<b>完整姓名</b>；仍无法匹配请联系教务核实名单。</div>';
+    return;
+  }
+  S.sid = m[0].id; S.nameQ = q;
+  var pc = pushProbe(S.sid);
+  S.probeWarn = (pc >= PROBE_MAX);
+  if(S.probeWarn) pushAlert(S.sid, false);
+  saveCur(S);
+  var dv = $("inpDob"), v = (dv && dv.value||"").trim();
+  if(!v){ $("msg").innerHTML = '<div class="err">请输入出生日期（公历，例：2009-03-21）。</div>'; return; }
+  S.dobTry = v; saveCur(S);
+  var st = stu(S.sid), nd = normDob(v), ok = (nd === normDob(st.dob));
+  pushAlert(S.sid, ok);
+  if(ok){ S.vrf=true; S.nameOk=false; saveCur(S); saveFail({n:0, until:0}); goAfterVerify(); return; }
+  /* 不匹配 */
+  var recA = recOf(S.sid);
+  if(recA && !recA.unlocked){
+    /* 已提交过的记录：必须验证通过才能查看本人回执，不放行 */
+    S.vrf = false;
+    var n2 = f.n + 1, hitMax = (n2 >= FAIL_MAX);
+    saveFail(hitMax ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0});
+    var tail = hitMax
+      ? ('本设备已暂时锁定至 '+esc(fmtTime(new Date(Date.now()+FAIL_LOCK_MIN*60000).toISOString()))+'，请稍后重试或携带证件到教务线下核实。')
+      : ('剩余尝试 '+(FAIL_MAX-n2)+' 次，超限将锁定本设备 '+FAIL_LOCK_MIN+' 分钟并通知教务。');
+    $("msg").innerHTML = '<div class="err">出生日期验证未通过。查看已提交的报考信息须通过本人身份验证，'+tail+'</div>'
+      + '<div class="lockbox"><b>若怀疑是姓名输错</b>系统匹配到的是：'+esc(maskCn(st.cn))+' · '+esc(st.cls)+' · '+esc(st.g)+'。若这不是你，请返回上方修改姓名。</div>';
+    saveCur(S); return;
+  }
+  var T = tickets(), old = T[S.sid];
+  if(old && old.status==="rejected"){ S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify(); return; }
+  if(!S.nameOk){ $("msg").innerHTML = nameCheckHTML(st, nd); bindNameCheck(); return; }
+  /* 本人已确认姓名无误：计一次失败、生成出生日期纠错工单并放行（提交仍锁定） */
+  var n3 = f.n + 1, hit3 = (n3 >= FAIL_MAX);
+  saveFail(hit3 ? {n:n3, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n3, until:0});
+  var round = old ? (old.status==="wait" ? (old.round||1) : (old.round||0)+1) : 1;
+  T[S.sid] = {status:"wait", round:round, text:"出生日期验证不一致：本人填写 "+nd+"，学籍记录 "+st.dob+"。",
+    at:new Date().toISOString(), auto:true, dobTry:nd};
+  saveTickets(T);
+  S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify();
+}
+/* 在线验证：姓名与出生日期都送到服务端比对，学生名单不下发到浏览器 */
+function nameCheckMasked(mk, nd){
+  var h = '<div class="err">姓名与出生日期不匹配（你填写的是 '+esc(nd)+'）。</div>';
+  h += '<div class="lockbox"><b>请先核对姓名是否输错</b>系统匹配到的是：'+esc(mk.cn)+' · '+esc(mk.cls)+' · '+esc(mk.g)
+    + '。<br>若这不是你，请返回上方修改姓名；若确是你，说明学籍记录的出生日期可能有问题，可提交教务核实。</div>';
+  h += '<div class="agree'+(S.nameOk?" on":"")+'" id="nmOk"><input type="checkbox" id="nmOkCb"'+(S.nameOk?" checked":"")+'><div>我确认姓名与班级输入无误，是学籍记录的出生日期需要核实</div></div>';
+  h += '<button class="btn" id="btnNameOk"'+(S.nameOk?"":" disabled")+'>确认姓名无误，提交核实并继续</button>';
+  return h;
+}
+function doVerify(){
+  if(!API_ON){ doVerifyLocal(); return; }
+  var f = failInfo();
+  if(f.until && f.until > Date.now()){ $("msg").innerHTML = '<div class="err">本设备已暂时锁定，请在 '+esc(fmtTime(new Date(f.until).toISOString()))+' 后重试，或携带证件到教务线下核实。</div>'; return; }
+  if(!S.cls){ $("msg").innerHTML = '<div class="err">请先选择所在班级。</div>'; return; }
+  var q = (($("inpName").value)||"").trim();
+  if(!q){ $("msg").innerHTML = '<div class="err">请输入完整姓名。</div>'; return; }
+  var dv = $("inpDob"), v = (dv && dv.value||"").trim();
+  if(!v){ $("msg").innerHTML = '<div class="err">请输入出生日期（例：2009-03-21）。</div>'; return; }
+  S.nameQ = q; S.dobTry = v; saveCur(S);
+  var btn = $("btnVrf"); if(btn){ btn.disabled = true; btn.textContent = "正在验证…"; }
+  apiPost("/api/verify",{cls:S.cls, name:q, dob:v, nameOk:!!S.nameOk}).then(function(res){
+    if(btn){ btn.disabled = false; btn.textContent = "验证并查看我的信息"; }
+    if(!res || !res.code){ $("msg").innerHTML = '<div class="err">服务器未响应，请稍后重试。</div>'; return; }
+    if(res.code === "nomatch"){
+      $("msg").innerHTML = '<div class="err">未匹配到记录。请核对班级与姓名，并确认已输入<b>完整姓名</b>；仍无法匹配请联系教务核实名单。</div>'; return;
+    }
+    if(res.code === "locked"){
+      var n = res.n||0, un = res.until||0;
+      saveFail({n:n, until:un});
+      S.vrf = false; saveCur(S);
+      var tail = (un && un > Date.now())
+        ? ('本设备已暂时锁定至 '+esc(fmtTime(new Date(un).toISOString()))+'，请稍后重试或携带证件到教务线下核实。')
+        : ('剩余尝试 '+Math.max(0, FAIL_MAX-n)+' 次，超限将锁定本设备 '+FAIL_LOCK_MIN+' 分钟并通知教务。');
+      var who = res.masked ? ('<div class="lockbox"><b>若怀疑是姓名输错</b>系统匹配到的是：'+esc(res.masked.cn)+' · '+esc(res.masked.cls)+' · '+esc(res.masked.g)+'。若这不是你，请返回上方修改姓名。</div>') : '';
+      $("msg").innerHTML = '<div class="err">出生日期验证未通过。查看已提交的报考信息须通过本人身份验证，'+tail+'</div>'+who;
+      return;
+    }
+    if(res.code === "nameCheck"){
+      S.sid = res.sid; S.nameOk = false; saveCur(S);
+      $("msg").innerHTML = nameCheckMasked(res.masked, res.tryDob); bindNameCheck();
+      return;
+    }
+    SYNC_LOCK = true;
+    S.sid = res.sid; S.dobOK = res.dob; S.vrf = true; S.nameOk = false;
+    STUDENTS = STUDENTS.filter(function(x){ return x.id !== res.sid }).concat([res.student]);
+    var mm = master(); delete mm[res.sid]; saveMaster(mm);
+    if(res.record){ var rr = load(); rr[res.sid] = res.record; save(rr); }
+    if(res.ticket){ var tt = tickets(); tt[res.sid] = res.ticket; saveTickets(tt); }
+    SYNC_LOCK = false;
+    saveFail({n:0, until:0});
+    saveCur(S);
+    goAfterVerify();
+  }).catch(function(){
+    if(btn){ btn.disabled = false; btn.textContent = "验证并查看我的信息"; }
+    API_ON = false; syncTip("已退回离线模式（数据只存在本机）", true); doVerifyLocal();
+  });
+}
+function goAfterVerify(){
+  var rec = recOf(S.sid);
+  if(winState()==="closed"){ S.step = rec ? 4 : 5; saveCur(S); render(); return; }
+  if(rec && !rec.unlocked){ S.step=4; saveCur(S); render(); return; }
+  if(rec && rec.unlocked){
+    S.ok = rec.ok; S.errText = rec.errText; S.sig1 = rec.sig1;
+    S.picked = rec.picked||{}; S.other = rec.other||{s:"",u:""}; S.sig2 = ""; S.agree = false;
+    S.step=1; saveCur(S); render(); return;
+  }
+  S.step=1; saveCur(S); render();
+}
+
+/* ---- 步骤 1：档案确认 ---- */
+function infoHTML(){
+  var st = stu(S.sid);
+  var h = '<div class="pad"><h2 class="sec">第 2 步 · 核对个人信息</h2>';
+  var tk = myTicket(S.sid), chg = st._chg || {};
+  h += '<div class="srcnote">'+SRC_NOTE+'</div>';
+  /* 姓名醒目化：验证通过后第一眼必须确认「这是不是我」，防止输错姓名进入他人档案 */
+  h += '<div class="idcard"><div class="lab">请确认这是你本人</div>'
+    + '<div class="big">'+esc(st.en)+'</div>'
+    + '<div class="cn">'+esc(st.cn)+'</div>'
+    + '<div class="sub">'+esc(st.cls)+' · '+esc(st.g)+' · 出生日期 '+esc(st.dob)+'</div>'
+    + '<div class="tip">如果以上姓名不是你，说明上一步的姓名输错了，请点「上一步」重新输入，千万不要在他人档案下继续填写。</div></div>';
+  if(tk && tk.status==="wait")
+    h += '<div class="lockbox"><b>已提交纠错 · 等待教务处理（第 '+tk.round+' 次）'+(tk.auto?' · 由出生日期校验自动提交':'')+'</b>内容：'+esc(tk.text)+'<br>教务核实更正后，请凭本人出生日期重新进入并复核。期间你可以先选择报考科目并保存草稿，但<b>暂不能提交</b>。</div>';
+  if(tk && tk.status==="fixed")
+    h += '<div class="lockbox"><b>教务已更正你的档案信息（'+esc(fmtTime(tk.fixedAt))+'）</b>请核对下方<b>标黄的变更项</b>；确认无误后勾选「信息无误」并签名，方可继续报考。</div>';
+  if(tk && tk.status==="rejected")
+    h += '<div class="lockbox"><b>教务已核实：原信息无误</b>处理说明：'+esc(tk.note||"")+'<br>请勾选「信息无误」并签名后继续报考。如仍有异议，请联系教务线下处理。</div>';
+  h += '<div class="card"><span class="lock">只读信息 · 如需更正请联系教务</span><div class="ro">';
+  [["姓名（大写）","en",st.en],["中文姓名","cn",st.cn],["性别","g",st.g],["出生日期","dob",st.dob],["班级","cls",st.cls]].forEach(function(r){
+    var c = chg[r[1]], extra = "";
+    if(r[1]==="dob" && tk && tk.dobTry && tk.status!=="closed")
+      extra = '<span class="chg">你填写的 '+esc(tk.dobTry)+' 与学籍记录不一致，已转教务核实</span>';
+    h += '<b>'+r[0]+'</b><span'+(r[1]==="en"?' class="en"':'')+'>'+esc(r[2])
+      + (c ? '<span class="chg">原 '+esc(c.from)+' → 现 '+esc(c.to)+'</span>' : '') + extra + '</span>';
+  });
+  h += '</div></div>';
+  h += '<label class="f">请确认：以上信息是否正确？</label>';
+  h += '<div class="radio'+(S.ok===true?" on":"")+'" id="rOk"><input type="radio" name="ok"'+(S.ok===true?" checked":"")+'><div>信息无误<small>确认后继续填写报考科目</small></div></div>';
+  h += '<div class="radio'+(S.ok===false?" on":"")+'" id="rNo"><input type="radio" name="ok"'+(S.ok===false?" checked":"")+'><div>信息有误<small>填写错误内容，教务更正后再报名</small></div></div>';
+  h += '<div id="okBox" style="display:none"><p class="hint" style="margin:8px 0 0">确认无误后即可继续填写报考科目，签名在最后提交前统一完成。</p></div>';
+  h += '<div id="noBox" style="display:none"><label class="f">错误内容（哪一项错了，正确应为）</label><textarea id="errTxt" placeholder="例：出生日期应为 2009-03-21，而非 2009-03-12">'+esc(S.errText)+'</textarea><p class="hint" style="margin-top:8px">提交后教务将核对并更正，更正完成前不会据此报名。</p></div>';
+  h += '<div id="msg"></div>';
+  h += '<div class="btnrow"><button class="btn gh noprint" id="btnPrev">上一步</button><button class="btn" id="btnNext">下一步</button></div></div>';
+  return h;
+}
+function bindInfo(){
+  function sync(){
+    $("rOk").classList.toggle("on", S.ok===true);
+    $("rNo").classList.toggle("on", S.ok===false);
+    $("rOk").querySelector("input").checked = (S.ok===true);
+    $("rNo").querySelector("input").checked = (S.ok===false);
+    $("okBox").style.display = S.ok===true?"block":"none";
+    $("noBox").style.display = S.ok===false?"block":"none";
+  }
+  function pick(v){
+    if(S.ok===v) return;
+    S.ok = v; saveCur(S); sync();
+  }
+  $("rOk").onclick = function(){ pick(true) };
+  $("rNo").onclick = function(){ pick(false) };
+  $("rOk").querySelector("input").onchange = function(){ pick(true) };
+  $("rNo").querySelector("input").onchange = function(){ pick(false) };
+  var t = $("errTxt"); if(t) t.oninput = function(){S.errText=this.value;saveCur(S)};
+  var bp = $("btnPrev"); if(bp) bp.onclick = function(){ S.step=0; S.nameQ=""; S.sid=""; S.vrf=false; S.dobTry=""; S.nameOk=false; saveCur(S); render(); };
+  if(S.ok!==null) sync();
+  $("btnNext").onclick = function(){
+    if(S.ok===null){ $("msg").innerHTML='<div class="err">请先选择「信息无误」或「信息有误」。</div>'; return; }
+    if(S.ok===false && !S.errText.trim()){ $("msg").innerHTML='<div class="err">请填写错误内容，便于教务更正。</div>'; return; }
+    var T = tickets(), old = T[S.sid];
+    if(S.ok===false){
+      var round = old ? (old.status==="wait" ? (old.round||1) : (old.round||0)+1) : 1;
+      if(round > TICKET_MAX){ $("msg").innerHTML='<div class="err">同一档案你已提交 '+TICKET_MAX+' 次纠错，请携带证件材料到教务线下面谈处理。</div>'; return; }
+      T[S.sid] = {status:"wait", round:round, text:S.errText, at:new Date().toISOString()};
+    } else {
+      if(old && (old.status==="fixed" || old.status==="rejected")){
+        old.status="closed"; old.confirmedAt=new Date().toISOString(); old.ver=stu(S.sid)._ver; T[S.sid]=old;
+      } else if(old && old.status==="wait"){
+        delete T[S.sid];
+      }
+    }
+    saveTickets(T);
+    S.step=2; saveCur(S); render();
+  };
+}
+
+/* ---- 步骤 2：科目与单元 ---- */
+function subjectHTML(){
+  var h = '<div class="pad"><h2 class="sec">第 3 步 · 选择报考科目</h2>';
+  h += '<p class="hint">可多选。勾选科目后展开该科目的单元清单，单元同样可多选。</p>';
+  SUBJECTS.forEach(function(sb){
+    var on = !!S.picked[sb.k];
+    h += '<div class="subj'+(on?" sel":"")+'" data-k="'+sb.k+'"><div class="top"><div class="cb"></div><div class="nm">'+sb.n+'<em>'+sb.en+'</em></div></div><div class="body">';
+    if(sb.free){
+      h += '<div class="grp"><label class="f" style="margin-top:0">科目名称</label><input type="text" id="othS" value="'+esc(S.other.s)+'" placeholder="填写具体科目名称">';
+      h += '<label class="f">单元 / 说明</label><input type="text" id="othU" value="'+esc(S.other.u)+'" placeholder="填写单元或备注，教务将复核">';
+      h += '<p class="hint" style="margin:8px 0 0">「其他」科目由教务人工复核后确认。</p></div>';
+    } else {
+      sb.groups.forEach(function(g,gi){
+        h += '<div class="grp">';
+        if(g.n) h += '<b>'+esc(g.n)+'</b>';
+        g.units.forEach(function(u){
+          var key = sb.k+"|"+gi+"|"+u;
+          h += '<div class="unit'+((S.picked[sb.k]||[]).indexOf(key)>=0?" on":"")+'" data-key="'+esc(key)+'"><div class="ub"></div><div>'+esc(u)+'</div></div>';
+        });
+        h += '</div>';
+      });
+    }
+    h += '</div></div>';
+  });
+  h += '<div id="msg"></div>';
+  h += '<div class="btnrow"><button class="btn gh noprint" id="btnPrev">上一步</button><button class="btn" id="btnNext">下一步</button></div></div>';
+  return h;
+}
+function bindSubject(){
+  document.querySelectorAll(".subj").forEach(function(el){
+    el.querySelector(".top").onclick = function(){
+      var k = el.getAttribute("data-k");
+      if(S.picked[k]) delete S.picked[k]; else S.picked[k]=[];
+      saveCur(S); render();
+    };
+  });
+  document.querySelectorAll(".unit").forEach(function(u){
+    u.onclick = function(){
+      var key = u.getAttribute("data-key"), k = key.split("|")[0];
+      var arr = S.picked[k]||[], i = arr.indexOf(key);
+      if(i>=0) arr.splice(i,1); else arr.push(key);
+      S.picked[k]=arr; saveCur(S); u.classList.toggle("on");
+    };
+  });
+  var bp2 = $("btnPrev"); if(bp2) bp2.onclick = function(){ S.step=1; saveCur(S); render(); };
+  var os=$("othS"), ou=$("othU");
+  if(os) os.oninput=function(){S.other.s=this.value;saveCur(S)};
+  if(ou) ou.oninput=function(){S.other.u=this.value;saveCur(S)};
+  $("btnNext").onclick = function(){
+    var keys = Object.keys(S.picked);
+    if(!keys.length){ $("msg").innerHTML='<div class="err">请至少选择一个报考科目。</div>'; return; }
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(k==="oth"){ if(!S.other.s.trim()){ $("msg").innerHTML='<div class="err">请填写「其他」科目的名称。</div>'; return; } }
+      else if(!(S.picked[k]||[]).length){ $("msg").innerHTML='<div class="err">已选择科目，但尚未勾选任何单元。</div>'; return; }
+    }
+    S.step=3; S.agree=false; S.sig2=""; saveCur(S); render();
+  };
+}
+
+/* ---- 步骤 3：预览 · 注意事项 · 签名 ---- */
+function previewHTML(){
+  var st = stu(S.sid);
+  var h = '<div class="pad"><h2 class="sec">第 4 步 · 预览全部信息并签名</h2>';
+  h += '<div class="card"><span class="lock">只读信息</span><div class="ro">';
+  h += '<b>姓名（大写）</b><span class="en">'+esc(st.en)+'</span>';
+  h += '<b>中文姓名</b><span>'+esc(st.cn)+'</span>';
+  h += '<b>性别</b><span>'+esc(st.g)+'</span>';
+  h += '<b>出生日期</b><span>'+esc(st.dob)+'</span>';
+  h += '<b>班级</b><span>'+esc(st.cls)+'</span>';
+  h += '<b>信息核对</b><span>'+(S.ok?'<span class="tag">本人确认无误</span>':'<span class="tag bad">已提交纠错</span>')+'</span>';
+  var tkP = myTicket(S.sid), blocked = !!(tkP && tkP.status!=="closed");
+  h += '<b>档案状态</b><span>'+(blocked?'<span class="tag bad">未定版 · 暂不可提交</span>':'<span class="tag">已确认定版</span>')+'</span>';
+  h += '</div></div>';
+  var rows = pickedText(S.picked,S.other);
+  h += '<div class="sum"><h4>报考内容（共 '+rows.length+' 项）</h4><ul>';
+  rows.forEach(function(r){ h += '<li>'+esc(r)+'</li>' });
+  h += '</ul></div>';
+  if(!S.ok) h += '<div class="sum"><h4>已提交的纠错内容</h4><p class="hint">'+esc(S.errText)+'</p></div>';
+  h += '<div class="notice"><h4>注意事项（请逐条阅读）</h4><ol>';
+  NOTICES.forEach(function(n){ h += '<li>'+n+'</li>' });
+  h += '</ol></div>';
+  h += '<div class="agree'+(S.agree?" on":"")+'" id="ag"><input type="checkbox" id="agCb"'+(S.agree?" checked":"")+'><div>我已逐条阅读并同意上述注意事项。</div></div>';
+  h += '<div class="srcnote">电子签名即确认你已核阅并知悉下列内容的严肃性，<b>并确认本人基本信息（姓名大写拼写、性别、出生日期）已核对无误</b>。班会期间的<b>正式签署</b>在班级纸质确认表上完成，该表仅确认报考科目与单元，纸质件留档。</div>';
+  h += '<label class="f">本人签名</label>';
+  h += '<canvas class="sign" id="cv2"></canvas><div class="signrow"><small>电子签名 · 确认已知悉并核对</small><button class="link" id="cl2">清除</button></div>';
+  if(blocked) h += '<div class="err">'+(tkP.status==="wait"
+    ? '你已提交信息纠错，教务处理完成并复核通过后方可提交。'
+    : '教务已更新你的档案信息，请先返回上一步复核档案后再提交。')+' 此处选好的科目会作为草稿保留。</div>';
+  h += '<div id="msg"></div>';
+  h += '<div class="btnrow"><button class="btn gh noprint" id="btnBack">上一步</button><button class="btn" id="btnSub"'+(blocked?' disabled style="opacity:.45"':'')+'>提交报考申请</button></div></div>';
+  return h;
+}
+function bindPreview(){
+  window._cv2 = initCanvas("cv2",function(d){S.sig2=d;saveCur(S)});
+  if(S.sig2) drawStored("cv2",S.sig2);
+  $("cl2").onclick = function(){ clearCanvas("cv2"); S.sig2=""; saveCur(S); };
+  $("ag").onclick = function(){ S.agree = !S.agree; $("agCb").checked = S.agree; $("ag").classList.toggle("on",S.agree); saveCur(S); };
+  $("agCb").onclick = function(e){ e.stopPropagation(); };
+  $("btnBack").onclick = function(){ S.step=2; saveCur(S); render(); };
+  $("btnSub").onclick = function(){
+    var tkB = myTicket(S.sid);
+    if(tkB && tkB.status!=="closed"){ $("msg").innerHTML='<div class="err">档案尚未定版，暂不能提交。</div>'; return; }
+    if(!S.agree){ $("msg").innerHTML='<div class="err">请先勾选「已阅读并同意注意事项」。</div>'; return; }
+    if(!S.sig2){ $("msg").innerHTML='<div class="err">请在签名区完成签名后再提交。</div>'; return; }
+    var r = load(), st = stu(S.sid), old = r[S.sid];
+    var payload = {sid:S.sid, cls:st.cls, cn:st.cn, en:st.en, g:st.g, dob:st.dob,
+      ok:S.ok, errText:S.errText, sig1:S.sig1, picked:S.picked, other:S.other, sig2:S.sig2,
+      subAt:new Date().toISOString(), unlocked:false,
+      modCount: old ? (old.modCount||0)+1 : 0,
+      paper: (old && old.paper==="已签") ? "未签" : (old ? old.paper : "未签"),
+      reSign: !!(old && old.paper==="已签"),
+      versions: old ? (old.versions||[]).concat([{subAt:old.subAt, txt:pickedText(old.picked,old.other).join("；")}]) : []};
+    r[S.sid] = payload; save(r);
+    S.subAt = payload.subAt; S.step=4; saveCur(S); render();
+  };
+}
+
+/* ---- 步骤 4：完成 / 只读回执 ---- */
+function doneHTML(){
+  var st = stu(S.sid), rec = recOf(S.sid)||{};
+  var rows = pickedText(rec.picked||S.picked, rec.other||S.other);
+  var h = '<div class="pad">';
+  if(winState()==="closed"){
+    h += '<div class="lockbox"><b>填报窗口已关闭 · 本页为只读存档</b>截止时间：'+WIN_TEXT+'。系统已锁定，不再受理提交与修改；教务将据此制作班级纸质确认表。</div>';
+  }
+  h += '<div class="ok">已提交 · '+esc(fmtTime(rec.subAt))+'</div>';
+  h += '<div class="card" style="margin-top:12px"><div class="ro">';
+  h += '<b>姓名（大写）</b><span class="en">'+esc(st.en)+'</span>';
+  h += '<b>班级</b><span>'+esc(st.cls)+'</span>';
+  h += '<b>信息核对</b><span>'+(rec.ok?'<span class="tag">本人确认无误</span>':'<span class="tag bad">已提纠错</span>')+'</span>';
+  h += '<b>提交时间</b><span>'+esc(fmtTime(rec.subAt))+'</span>';
+  h += '<b>纸质签署</b><span>'+(rec.reSign?'<span class="tag bad">需重新签署</span>':(rec.paper==="已签"?'<span class="tag">已签署</span>':'<span class="tag wait">'+esc(rec.paper||"未签")+'</span>'))+'</span>';
+  h += '</div></div>';
+  h += '<div class="sum"><h4>报考内容</h4><ul>';
+  rows.forEach(function(x){ h += '<li>'+esc(x)+'</li>' });
+  h += '</ul></div>';
+  if(!rec.ok) h += '<div class="sum"><h4>已提交的纠错内容</h4><p class="hint">'+esc(rec.errText)+'</p></div>';
+  if(rec.reSign) h += '<div class="err">你的报考内容已被教务解锁并重新提交，此前的纸质签名已作废，请在班级确认表上<b>重新签署</b>。</div>';
+  h += '<button class="btn gh" id="btnPrint">打印 / 保存我的报考清单</button>';
+  h += '<p class="hint" style="margin-top:14px">本次申请每人仅可提交一次，提交后不可自行修改或重新提交。如确需变更，请联系教务在后台处理。</p>';
+  h += '<p class="hint">班级纸质确认表由教务依据本页内容制作，班会期间须在表上核对本人报考的科目与单元后完成签名，纸质件留档。</p>';
+  h += '<button class="btn gh noprint" id="btnBack2" style="margin-top:14px">重新查询其他姓名</button></div>';
+  return h;
+}
+function bindDone(){
+  $("btnPrint").onclick = function(){ window.print() };
+  var b = $("btnBack2"); if(b) b.onclick = function(){ S.step=0; S.nameQ=""; S.sid=""; S.vrf=false; S.dobTry=""; S.nameOk=false; saveCur(S); render(); };
+}
+
+/* ---- 窗口关闭后 · 未提交 ---- */
+function closedHTML(){
+  return '<div class="pad">'
+    + '<div class="lockbox"><b>填报窗口已关闭</b>本次报考时间：'+WIN_TEXT+'。系统已锁定，不再受理提交。</div>'
+    + '<div class="warnbox"><b>未查询到你的报考记录</b>你在填报窗口内未完成提交，按规则视为自动放弃本次报考。<br>如确有特殊情况，请尽快联系教务处理。</div>'
+    + (function(){ var t = S.sid?myTicket(S.sid):null;
+        return t && t.status==="wait" ? '<div class="lockbox"><b>你曾提交过档案纠错</b>教务尚未处理完成，因此你未能提交报考。请立即联系教务处理。</div>' : ''; })()
+    + '<button class="btn gh noprint" id="btnBack3" style="margin-top:14px">重新查询</button></div>';
+}
+function bindClosed(){
+  var b = $("btnBack3"); if(b) b.onclick = function(){ S.step=0; S.nameQ=""; S.sid=""; S.vrf=false; S.dobTry=""; S.nameOk=false; saveCur(S); render(); };
+}
+
+/* ---- 签名画布 ---- */
+function initCanvas(id,cb){
+  var c = $(id), ctx = c.getContext("2d"), dpr = window.devicePixelRatio||1;
+  c.width = c.offsetWidth*dpr; c.height = c.offsetHeight*dpr;
+  ctx.scale(dpr,dpr); ctx.lineWidth=2.2; ctx.lineCap="round"; ctx.strokeStyle="#0C447C";
+  var drawing=false;
+  function pos(e){var r=c.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+  c.onpointerdown=function(e){drawing=true;ctx.beginPath();var p=pos(e);ctx.moveTo(p.x,p.y);c.setPointerCapture(e.pointerId)};
+  c.onpointermove=function(e){if(!drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke()};
+  c.onpointerup=function(){if(!drawing)return;drawing=false;cb(c.toDataURL())};
+  return ctx;
+}
+function clearCanvas(id){
+  var c=$(id), ctx=c.getContext("2d");
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,c.width,c.height); ctx.restore();
+}
+function drawStored(id,data){
+  var c=$(id), ctx=c.getContext("2d"), img=new Image();
+  img.onload=function(){ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(img,0,0,c.width,c.height);ctx.restore()};
+  img.src=data;
+}
+
+/* ---- 教务后台 ---- */
+function adminHTML(){
+  var r = load(), ids = Object.keys(r);
+  var byCls = {}, subCnt = {}, unitCnt = {}, errs = [], resign = [];
+  allStu().forEach(function(s){
+    byCls[s.cls] = byCls[s.cls]||{total:0,done:0,signed:0};
+    byCls[s.cls].total++;
+    var rec = r[s.id]; if(!rec) return;
+    byCls[s.cls].done++;
+    if(rec.paper==="已签") byCls[s.cls].signed++;
+    if(rec.ok===false) errs.push({s:s,rec:rec});
+    if(rec.reSign) resign.push({s:s,rec:rec});
+    Object.keys(rec.picked||{}).forEach(function(k){
+      var sb = SUBJECTS.filter(function(x){return x.k===k})[0]; if(!sb) return;
+      subCnt[sb.n] = (subCnt[sb.n]||0)+1;
+      if(sb.free){ unitCnt["其他："+(rec.other.s||"")] = (unitCnt["其他："+(rec.other.s||"")]||0)+1; return; }
+      (rec.picked[k]||[]).forEach(function(key){
+        var p = key.split("|"), gn = (sb.groups[+p[1]].n||sb.n)+" · "+p.slice(2).join("|");
+        unitCnt[gn] = (unitCnt[gn]||0)+1;
+      });
+    });
+  });
+  var todo = allStu().filter(function(s){return !r[s.id]});
+  var T = tickets();
+  var openT = Object.keys(T).filter(function(id){return T[id].status!=="closed"});
+  var waitT = openT.filter(function(id){return T[id].status==="wait"});
+  var fixedT = openT.filter(function(id){return T[id].status==="fixed"});
+  var closedT = Object.keys(T).filter(function(id){return T[id].status==="closed"});
+  var unErr = errs.length;
+  var w = winState();
+  var h = '<div class="pad"><h2 class="sec">教务后台</h2><p class="hint">已提交 '+ids.length+' / '+allStu().length+' 人 · 纸质已签 '+ids.filter(function(i){return r[i].paper==="已签"}).length+' 人</p>';
+  if(w==="closed") h += '<div class="lockbox"><b>窗口已关闭 · 数据已定格</b>截止时间：'+WIN_TEXT+'。学生端已锁定，仅可查看本人已提交内容，不再受理提交与修改；可据此制作班级纸质确认表。窗口关闭后不再开放「解锁重填」，个别变更须线下处理并同步更新纸质件。</div>';
+  if(API_ON){
+    h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">考试季管理</b>';
+    h += '<p class="hint" style="margin:6px 0 10px">数据按考试季分开存放，各季互不干扰。当前：<b>'+esc(SERVER_SEASON||"")+'</b>（共 '+SEASON_LIST.length+' 季）</p>';
+    h += '<p class="hint">切换考试季：<select id="seaSel" class="mini">';
+    SEASON_LIST.forEach(function(q){
+      h += '<option value="'+esc(q.id)+'"'+(q.id===SERVER_SEASON?" selected":"")+'>'+esc(q.name||q.id)+(q.archived?"（已归档）":"")+' · 名单 '+q.students+' 人 / 已提交 '+q.records+' 人</option>';
+    });
+    h += '</select> <button class="mini act" id="seaSwitch">切换</button> <button class="mini" id="seaRefresh">刷新数据</button></p>';
+    h += '<p class="hint" style="margin-top:12px">新建考试季（自动成为当前季，旧季数据完整保留）：</p>';
+    h += '<p><input id="seaId" class="mini" placeholder="编号，如 2026-winter" style="width:160px"> '
+      + '<input id="seaName" class="mini" placeholder="名称，如 2026 年冬季 CAIE 考试报名" style="width:250px"></p>';
+    h += '<p><input id="seaStart" class="mini" type="datetime-local"> 至 <input id="seaEnd" class="mini" type="datetime-local">'
+      + ' <button class="mini act" id="seaCreate">新建并切换</button></p>';
+    h += '<p class="hint">适用班级（英文逗号分隔，留空沿用当前季）：<input id="seaCls" class="mini" style="width:280px" value="'+esc((CLASSES||[]).join(","))+'"></p>';
+    h += '<p class="hint"><label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="seaRoster" style="width:auto;margin:0"> 同时把当前季学生名单复制到新季</label></p>';
+    h += '<p class="hint" style="margin-top:12px">导入本季学生名单（每行：学号,班级,中文名,姓名大写,性别,出生日期）：</p>';
+    h += '<textarea id="rosTxt" placeholder="S001,IG1,张思远,ZHANG SIYUAN,男,2009-03-12&#10;S002,IG1,李佳怡,LI JIAYI,女,2009-07-04"></textarea>';
+    h += '<p><button class="mini act" id="rosGo">导入名单</button> <button class="mini" id="seaArchive">归档当前季并导出三件套</button></p>';
+    h += '<p class="hint">导入名单只允许在本季尚无提交记录时整体替换；已有提交后如需换名单，请新建考试季。</p></div>';
+  }
+  if(ADMIN_EDIT){
+    var es = stu(ADMIN_EDIT), et = T[ADMIN_EDIT]||{};
+    h += '<div class="card" style="border-color:#185FA5;background:#E6F1FB">';
+    h += '<b style="font-size:14px">更正档案 · '+esc(es.cls)+' '+esc(es.cn)+'</b>';
+    h += '<p class="hint" style="margin:6px 0 0">学生提交的问题：'+esc(et.text||"")+'</p>';
+    h += '<label class="f">姓名（大写）</label><input type="text" id="ed_en" value="'+esc(es.en)+'">';
+    h += '<label class="f">中文姓名</label><input type="text" id="ed_cn" value="'+esc(es.cn)+'">';
+    h += '<label class="f">性别</label><input type="text" id="ed_g" value="'+esc(es.g)+'">';
+    h += '<label class="f">出生日期</label><input type="text" id="ed_dob" value="'+esc(es.dob)+'">';
+    h += '<label class="f">班级</label><input type="text" id="ed_cls" value="'+esc(es.cls)+'">';
+    h += '<label class="f">处理依据（必填 · 核了哪份材料）</label><textarea id="ed_note" placeholder="例：已核对本人身份证，拼写以身份证为准"></textarea>';
+    h += '<p class="hint">保存后该生档案版本号 +1，状态转为「已更正待复核」，学生下次进入会被强制要求复核标黄的变更项；复核通过前不能提交报考。</p>';
+    h += '<p><button class="mini act" id="edSave">保存更正</button> <button class="mini" id="edCancel">取消</button></p></div>';
+  }
+  h += '<div class="grid2">';
+  Object.keys(byCls).forEach(function(c){
+    var o = byCls[c];
+    h += '<div class="stat"><b>'+o.done+' / '+o.total+'</b><span>'+c+' 已提交（纸质已签 '+o.signed+'）</span></div>';
+  });
+  h += '</div>';
+  if(waitT.length) h += '<div class="err">有 <b>'+waitT.length+'</b> 条纠错工单待处理。处理完成前这些学生<b>无法提交报考</b>；窗口关闭仍未处理的，将因未提交而视为放弃，务必在截止前清空。</div>';
+  if(fixedT.length) h += '<div class="err">'+fixedT.length+' 名学生档案已更正、等待本人复核。请导出下方「待复核名单」交班主任点对点通知。</div>';
+  if(resign.length) h += '<div class="err">'+resign.length+' 名学生提交后曾被解锁重填，纸质签名已作废，须重新签署。</div>';
+  var badQ = alerts().filter(function(a){return !a.ok});
+  if(badQ.length){
+    var recent = badQ.slice(0,6).map(function(a){ var s2=stu(a.sid); return esc(s2? (s2.cls+" "+s2.cn) : (a.sid||""))+" · "+esc(fmtTime(a.at)) }).join("；");
+    h += '<div class="err"><b>身份校验告警 '+badQ.length+' 条</b>同一设备出生日期校验失败（连续 '+FAIL_MAX+' 次将锁定 '+FAIL_LOCK_MIN+' 分钟）。最近：'+recent+'。<br>短时批量失败通常意味着有人在试探他人档案，请留意；若确系学生本人记错日期，请直接更正其档案并通知本人。</div>';
+  }
+  var pb = probeState();
+  if(pb && pb.sids && pb.sids.length >= PROBE_MAX){
+    var pn = pb.sids.map(function(id){ var s3 = stu(id); return esc(s3 ? (s3.cls+" "+s3.cn) : id) }).join("、");
+    h += '<div class="err"><b>查询探测提示</b>本设备在 '+PROBE_WIN_MIN+' 分钟内查询过 <b>'+pb.sids.length+'</b> 名不同学生的档案：'+pn
+      + '。<br>教室公用电脑多人轮流使用属正常情况；若非公用设备，请留意是否为非本人查询。<b>本提示仅作记录，不影响任何学生正常填写。</b></div>';
+  }
+  h += '<h2 class="sec" style="margin:22px 0 8px">报考汇总表</h2><div style="overflow:auto"><table>';
+  h += '<tr><th>班级</th><th>姓名（大写）</th><th>性别</th><th>出生日期</th><th>信息核对</th><th>报考内容</th><th>提交时间</th><th>重填</th><th>纸质签署</th><th>操作</th></tr>';
+  ids.forEach(function(id){
+    var rec = r[id], s = stu(id);
+    var st = rec.reSign ? '<span class="tag bad">需重新签署</span>' : (rec.paper==="已签"?'<span class="tag">已签</span>':'<span class="tag wait">'+esc(rec.paper||"未签")+'</span>');
+    h += '<tr><td>'+s.cls+'</td><td class="mono">'+esc(rec.en)+'</td><td>'+esc(rec.g)+'</td><td>'+esc(rec.dob)+'</td>'
+      + '<td>'+(rec.ok?'<span class="tag">无误</span>':'<span class="tag bad">有误</span>')+'</td>'
+      + '<td>'+esc(pickedText(rec.picked,rec.other).join("；"))+'</td><td class="mono">'+esc(fmtTime(rec.subAt))+'</td>'
+      + '<td>'+(rec.modCount?('<span class="tag warn">'+rec.modCount+' 次</span>'):'—')+'</td><td>'+st+'</td>'
+      + '<td>'+(w==="closed"?'<span class="tag">已截止</span>':'<button class="mini" data-unlock="'+id+'">解锁重填</button>')+'</td></tr>';
+  });
+  h += '</table></div>';
+  h += '<p class="hint" style="margin-top:8px">纸质签署状态：';
+  h += '<select id="bulkCls" class="mini"><option value="">按班级批量标记</option>';
+  CLASSES.forEach(function(c){h+='<option value="'+c+'">'+c+'</option>'});
+  h += '</select> <select id="bulkSt" class="mini"><option value="已签">已签</option><option value="待补签">待补签</option><option value="未签">未签</option></select>';
+  h += ' <button class="mini act" id="bulkGo">应用</button></p>';
+  h += '<button class="btn gh noprint" id="btnCsv" style="width:auto">导出汇总 CSV</button>';
+  h += '<div class="notice" style="margin-top:16px"><h4>班级纸质确认表 · 建议声明文案</h4>'
+    + '<p class="hint" style="margin:0 0 8px">纸质表由教务自行排版，建议把下面这句话印在表头或表尾。姓名列建议只用中文名（同班无重名），不必再印姓名大写、性别与出生日期。</p>'
+    + '<div style="font-size:13px;line-height:1.8">'+PAPER_NOTE+'</div></div>';
+  h += '<h2 class="sec" style="margin:22px 0 8px">按科目统计</h2><table>';
+  Object.keys(subCnt).forEach(function(k){ h += '<tr><td>'+esc(k)+'</td><td><b>'+subCnt[k]+'</b> 人</td></tr>' });
+  h += '</table>';
+  h += '<h2 class="sec" style="margin:22px 0 8px">按单元统计</h2><table>';
+  Object.keys(unitCnt).sort().forEach(function(k){ h += '<tr><td>'+esc(k)+'</td><td><b>'+unitCnt[k]+'</b> 人次</td></tr>' });
+  h += '</table>';
+  h += '<h2 class="sec" style="margin:22px 0 8px">纠错工单（待处理 '+waitT.length+' · 已结 '+closedT.length+'）</h2>';
+  if(!openT.length && !closedT.length) h += '<p class="hint">暂无</p>';
+  else {
+    h += '<table><tr><th>班级</th><th>姓名</th><th>错误内容</th><th>轮次</th><th>提交时间</th><th>状态</th><th>操作</th></tr>';
+    openT.concat(closedT).forEach(function(id){
+      var t = T[id], s = stu(id);
+      var stt = t.status==="wait" ? '<span class="tag bad">待处理</span>'
+        : t.status==="fixed" ? '<span class="tag warn">已更正待复核</span>'
+        : t.status==="rejected" ? '<span class="tag wait">已驳回</span>' : '<span class="tag">已复核通过</span>';
+      var act = t.status==="wait" ? '<button class="mini act" data-fix="'+id+'">更正信息</button> <button class="mini" data-rej="'+id+'">驳回</button>'
+        : (t.status==="fixed"||t.status==="rejected") ? '<button class="mini" data-undo="'+id+'">撤销处理</button>' : '—';
+      h += '<tr><td>'+esc(s.cls)+'</td><td>'+esc(s.cn)+'</td><td>'+esc(t.text)+'</td><td>'+(t.round||1)+'</td>'
+        + '<td class="mono">'+esc(fmtTime(t.at))+'</td><td>'+stt+'</td><td>'+act+'</td></tr>';
+    });
+    h += '</table>';
+  }
+  h += '<h2 class="sec" style="margin:22px 0 8px">待学生复核名单（'+fixedT.length+'）</h2>';
+  if(!fixedT.length) h += '<p class="hint">暂无</p>';
+  else {
+    var byC2 = {};
+    fixedT.forEach(function(id){(byC2[stu(id).cls]=byC2[stu(id).cls]||[]).push(stu(id).cn)});
+    h += '<table><tr><th>班级</th><th>需回来复核的学生</th></tr>';
+    Object.keys(byC2).forEach(function(c){ h += '<tr><td>'+esc(c)+'</td><td>'+byC2[c].join("、")+'</td></tr>' });
+    h += '</table>';
+    h += '<p class="hint">此名单按班级导出后交班主任，由班主任点对点通知学生回来复核；系统不会主动推送。</p>';
+    h += '<button class="btn gh noprint" id="btnCsv2" style="width:auto">导出待复核名单 CSV</button>';
+  }
+  h += '<h2 class="sec" style="margin:22px 0 8px">未提交名单（'+todo.length+'）</h2>';
+  if(!todo.length) h += '<p class="hint">全部提交完成</p>';
+  else { var byC={}; todo.forEach(function(s){(byC[s.cls]=byC[s.cls]||[]).push(s.cn)});
+    h += '<table><tr><th>班级</th><th>未提交学生</th></tr>';
+    Object.keys(byC).forEach(function(c){ h += '<tr><td>'+c+'</td><td>'+byC[c].join("、")+'</td></tr>' });
+    h += '</table>'; }
+  h += '<button class="btn gh noprint" id="btnBack" style="margin-top:18px">返回学生端</button></div>';
+  return h;
+}
+function bindAdmin(){
+  $("btnBack").onclick = function(){ S.admin=false; render(); };
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-unlock]"),function(b){
+    b.onclick = function(){
+      var id = b.getAttribute("data-unlock"), r = load(), rec = r[id], s = stu(id);
+      if(winState()==="closed"){ alert("填报窗口已关闭，学生端不再受理提交。\n如需变更请线下处理，并同步更新纸质确认表。"); return; }
+      if(!confirm("确定解锁 "+s.cls+" "+s.cn+" 的报考申请？\n解锁后该生可重新填写一次并覆盖旧记录；若此前已完成纸质签署，将标记为「需重新签署」。")) return;
+      rec.unlocked = true; save(r); render();
+    };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-fix]"),function(b){
+    b.onclick = function(){ ADMIN_EDIT = b.getAttribute("data-fix"); render(); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-rej]"),function(b){
+    b.onclick = function(){
+      var id = b.getAttribute("data-rej"), s = stu(id);
+      var note = prompt("驳回 "+s.cls+" "+s.cn+" 的纠错申请。\n请填写核实依据（学生会在页面看到）：");
+      if(note===null) return;
+      if(!note.trim()){ alert("必须填写核实依据，便于学生理解。"); return; }
+      var T = tickets(); T[id].status="rejected"; T[id].note=note; T[id].rejectedAt=new Date().toISOString();
+      saveTickets(T); render();
+    };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-undo]"),function(b){
+    b.onclick = function(){ var id=b.getAttribute("data-undo"), T=tickets(); T[id].status="wait"; T[id].note=""; saveTickets(T); render(); };
+  });
+  var edSave = $("edSave");
+  if(edSave) edSave.onclick = function(){
+    var id = ADMIN_EDIT;
+    var base = STUDENTS.filter(function(s){return s.id===id})[0];
+    var m = master(), cur = m[id]||{};
+    var f = {en:$("ed_en").value, cn:$("ed_cn").value, g:$("ed_g").value, dob:$("ed_dob").value, cls:$("ed_cls").value};
+    Object.keys(f).forEach(function(k){ f[k] = String(f[k]||"").trim() });
+    f.en = f.en.toUpperCase().replace(/\s+/g," ");
+    var note = $("ed_note").value.trim(), chg = {};
+    Object.keys(f).forEach(function(k){
+      var oldv = (cur[k]!==undefined ? cur[k] : base[k]);
+      if(String(oldv)!==String(f[k])) chg[k] = {from:oldv, to:f[k]};
+    });
+    if(!Object.keys(chg).length){ alert("未检测到字段变更。若核实后确认原信息无误，请改用「驳回」。"); return; }
+    if(!note){ alert("请填写处理依据（核了哪份材料）。"); return; }
+    var nowIso = new Date().toISOString();
+    m[id] = Object.assign({}, cur, f, {_ver:(cur._ver||1)+1, _chg:chg, _note:note, _by:"教务", _at:nowIso});
+    saveMaster(m);
+    var T = tickets();
+    T[id] = Object.assign({}, T[id], {status:"fixed", fixedAt:nowIso, note:note, chg:chg, ver:m[id]._ver});
+    saveTickets(T);
+    ADMIN_EDIT = null; render();
+  };
+  var edCancel = $("edCancel");
+  if(edCancel) edCancel.onclick = function(){ ADMIN_EDIT = null; render(); };
+  var btnCsv2 = $("btnCsv2");
+  if(btnCsv2) btnCsv2.onclick = function(){ download((SERVER_SEASON||"报考")+"-待复核名单.csv", reviewCsvLines().join("\n")); };
+  $("bulkGo").onclick = function(){
+    var c = $("bulkCls").value, stt = $("bulkSt").value;
+    if(!c){ alert("请先选择班级"); return; }
+    var r = load();
+    Object.keys(r).forEach(function(id){ if(r[id].cls===c){ r[id].paper = stt; if(stt==="已签") r[id].reSign = false; } });
+    save(r); render();
+  };
+  $("btnCsv").onclick = function(){ download((SERVER_SEASON||"报考")+"-报考汇总.csv", summaryCsvLines().join("\n")); };
+  /* ---- 考试季管理 ---- */
+  var seaSwitch = $("seaSwitch");
+  if(seaSwitch) seaSwitch.onclick = function(){
+    var id = $("seaSel").value;
+    if(!id) return;
+    if(!confirm("切换到考试季「"+id+"」？\n当前页面数据将替换为该季内容。")) return;
+    apiPost("/api/admin/season",{token:ADMIN_TOKEN, action:"switch", id:id}).then(function(r){
+      if(!r || !r.ok){ alert((r&&r.error)||"切换失败"); return; }
+      adminRefresh().then(function(){ render(); });
+    });
+  };
+  var seaRefresh = $("seaRefresh");
+  if(seaRefresh) seaRefresh.onclick = function(){ adminRefresh().then(function(){ render(); }); };
+  var seaCreate = $("seaCreate");
+  if(seaCreate) seaCreate.onclick = function(){
+    var id = ($("seaId").value||"").trim(), nm = ($("seaName").value||"").trim();
+    var stt = $("seaStart").value, en = $("seaEnd").value;
+    if(!id){ alert("请填写考试季编号，例如 2026-winter"); return; }
+    if(!stt || !en){ alert("请填写开放与截止时间"); return; }
+    var clsRaw = ($("seaCls").value||"").trim();
+    apiPost("/api/admin/season",{token:ADMIN_TOKEN, action:"create", id:id, name:nm||id, start:stt, end:en,
+      classes: clsRaw ? clsRaw.split(/[,，]/).map(function(x){return x.trim()}).filter(Boolean) : CLASSES,
+      withRoster: !!($("seaRoster") && $("seaRoster").checked), copyFrom: SERVER_SEASON}).then(function(r){
+      if(!r || !r.ok){ alert((r&&r.error)||"新建失败"); return; }
+      adminRefresh().then(function(){ render(); alert("已新建并切换到考试季「"+id+"」。\n请导入本季学生名单。"); });
+    });
+  };
+  var rosGo = $("rosGo");
+  if(rosGo) rosGo.onclick = function(){
+    var txt = ($("rosTxt").value||"").trim();
+    if(!txt){ alert("请粘贴名单，每行：学号,班级,中文名,姓名大写,性别,出生日期"); return; }
+    var rows = txt.split(/\r?\n/).map(function(l){ return l.split(/[,，\t]/).map(function(x){return String(x||"").trim()}) })
+      .filter(function(a){ return a.length>=6 && a[0] });
+    if(!rows.length){ alert("未解析到有效行，请检查格式：学号,班级,中文名,姓名大写,性别,出生日期"); return; }
+    var students = rows.map(function(a,i){ return {id:a[0]||("S"+i), cls:a[1], cn:a[2], en:a[3], g:a[4], dob:a[5]} });
+    if(!confirm("将导入 "+students.length+" 名学生，替换本季现有名单。确定？")) return;
+    apiPost("/api/admin/season",{token:ADMIN_TOKEN, action:"roster", students:students}).then(function(r){
+      if(!r || !r.ok){ alert((r&&r.error)||"导入失败"); return; }
+      adminRefresh().then(function(){ render(); alert("已导入 "+r.count+" 人，班级："+(r.classes||[]).join("、")); });
+    });
+  };
+  var seaArchive = $("seaArchive");
+  if(seaArchive) seaArchive.onclick = function(){
+    if(!confirm("导出当前季三件套汇总 CSV、待复核名单 CSV、未提交名单 CSV？")) return;
+    download((SERVER_SEASON||"报考")+"-报考汇总.csv", summaryCsvLines().join("\n"));
+    download((SERVER_SEASON||"报考")+"-待复核名单.csv", reviewCsvLines().join("\n"));
+    download((SERVER_SEASON||"报考")+"-未提交名单.csv", todoCsvLines().join("\n"));
+    apiPost("/api/admin/season",{token:ADMIN_TOKEN, action:"archive", id:SERVER_SEASON}).then(function(r){
+      if(r && r.ok) alert("已归档，该季转为只读存档。\n如需继续报考，请新建下一季。");
+    });
+  };
+}
+
+/* ================= 启动 ================= */
+$("dbgWin").onchange = function(){ render() };
+$("dbgAdmin").onclick = function(){
+  if(API_ON && !ADMIN_TOKEN){
+    var p = prompt("请输入教务后台口令：");
+    if(p === null) return;
+    adminLogin(p).then(function(ok){ if(ok){ S.admin = true; render(); } });
+    return;
+  }
+  S.admin = true; render();
+};
+$("dbgReset").onclick = function(){
+  if(!confirm("清空本机缓存的演示数据？\n（服务器上的数据不会删除）")) return;
+  localStorage.removeItem(LSK); localStorage.removeItem(LSU); localStorage.removeItem(LSM); localStorage.removeItem(LST);
+  localStorage.removeItem(LSF); localStorage.removeItem(LSA); clearProbe();
+  ADMIN_EDIT = null; ADMIN_TOKEN = "";
+  S={step:0,cls:"",nameQ:"",sid:"",vrf:false,dobTry:"",dobOK:"",nameOk:false,probeWarn:false,ok:null,errText:"",sig1:"",picked:{},other:{s:"",u:""},sig2:"",subAt:"",agree:false,admin:false};
+  render();
+};
+(function init(){
+  try{ var c = JSON.parse(localStorage.getItem(LSU)||"null"); if(c) S = c; }catch(e){}
+  try{ SERVER_SEASON = localStorage.getItem("reg_season")||"" }catch(e){}
+  S.admin = false;
+  render();
+  bootServer().then(function(ok){ if(ok){ var d=$("dbgWin"); if(d) d.value="auto"; render(); } });
+})();
+</script>
+</body>
+</html>
