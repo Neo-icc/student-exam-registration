@@ -297,7 +297,14 @@ def mask_dob(s):
 
 
 def api(base, path_, obj=None, timeout=15):
-    url = base.rstrip("/") + path_
+    # 线上分享地址形如 https://host/?sharecode=XXX：query 必须拼在每个 API 路径末尾，
+    # 不能拼在路径前面，否则 /api/xxx 会被当成 query 的一部分。
+    base = base.rstrip("/")
+    if "?" in base:
+        root, query = base.split("?", 1)
+        url = root + path_ + "?" + query
+    else:
+        url = base + path_
     if obj is None:
         req = request.Request(url)
     else:

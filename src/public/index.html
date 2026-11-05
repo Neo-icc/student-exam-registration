@@ -349,10 +349,10 @@ function reviewCsvLines(){
   return lines;
 }
 function logCsvLines(){
-  var L = ["时间(服务器),学号,班级,姓名,动作,IP,设备类型,品牌,型号,操作系统,浏览器,客户端屏幕,客户端机型,备注"];
+  var L = ["时间(服务器),学号,班级,姓名,动作,IP,参考来源IP(可伪造),设备类型,品牌,型号,操作系统,浏览器,客户端屏幕,客户端机型,备注"];
   logs().forEach(function(g){
     var st = stu(g.sid)||{}, d = g.device||{}, ch = g.clientHint||{};
-    L.push([g.at,g.sid,st.cls||"",st.cn||"",LOG_ACT[g.action]||g.action,g.ip||"",
+    L.push([g.at,g.sid,st.cls||"",st.cn||"",LOG_ACT[g.action]||g.action,g.ip||"",g.fwd||"",
       d.type||"",d.brand||"",d.model||"",d.os||"",d.browser||"",ch.screen||"",ch.model||"",g.detail||""]
       .map(function(x){ return '"'+String(x==null?"":x).replace(/"/g,'""')+'"'; }).join(","));
   });
@@ -962,7 +962,7 @@ function adminHTML(){
   if(API_ON){
     var LG = logs().slice().reverse();
     h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">输入时间与终端设备记录</b>';
-    h += '<p class="hint" style="margin:6px 0 10px">每次验证、输入同步与提交均由服务端按<b>服务器时钟</b>记录，并从 User-Agent 解析设备。共 '+LG.length+' 条（每季上限 5000）。<b>客户端上报项可伪造，仅作参考。</b></p>';
+    h += '<p class="hint" style="margin:6px 0 10px">每次验证、输入同步与提交均由服务端按<b>服务器时钟</b>记录，并从 User-Agent 解析设备。共 '+LG.length+' 条（每季上限 5000）。<b>客户端上报项可伪造，仅作参考。</b>反向代理下 IP 可能统一显示为网关地址，区分信息见导出 CSV 的「参考来源IP(可伪造)」列。</p>';
     h += '<p><button class="mini act" id="btnLogCsv">导出输入记录 CSV</button></p>';
     h += '<div style="max-height:260px;overflow:auto"><table><tr><th>时间</th><th>学生</th><th>动作</th><th>设备</th><th>IP</th></tr>';
     LG.slice(0,50).forEach(function(g){

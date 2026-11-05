@@ -102,6 +102,7 @@ function logEvent(s, sid, action, ctx, detail){
     sid: sid || "",
     action: action,
     ip: (ctx && ctx.ip) || "",
+    fwd: (ctx && ctx.fwd) || "",   // 参考来源 IP，可伪造，不参与任何安全判定
     device: (ctx && ctx.device) || null,
     clientHint: (ctx && ctx.clientHint) || null,
     detail: String(detail || "").slice(0, 120)

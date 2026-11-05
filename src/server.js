@@ -38,6 +38,9 @@ function matchName(x, q){
   var n = normName(q); if(!n) return false;
   return normName(x.cn) === n || normName(x.en) === n;
 }
+/* 失败锁定粒度：出口 IP + 目标学生。校园 NAT / 云端反向代理下所有访客可能共用
+   一个出口 IP（实测云端恒为 127.0.0.1），只按 IP 计数会导致一人填错锁住所有人。 */
+function lockKey(ip, cls, q){ return ip + "|" + String(cls||"") + "|" + normName(q); }
 function maskCn(s){ var t=String(s||"").trim(); return t.length<=1 ? t : t[0]+new Array(t.length).join("*"); }
 function nowISO(){ return new Date().toISOString(); }
 
@@ -95,7 +98,7 @@ function newSeason(id, name, start, end, classes, subjects, notices, students){
 
 /* ---------- 数据读写 ---------- */
 var FAIL_MAX = 3, FAIL_LOCK_MIN = 15;
-var failMap = {};   // ip -> {n, until}
+var failMap = {};   // lockKey -> {n, until}
 var tokens = {};    // token -> {exp, ip}
 var loginFail = {}; // ip -> {n, until}
 
@@ -191,7 +194,9 @@ function checkToken(t, ip){
 }
 function needAdmin(s, t, ip){ return checkToken(t, ip); }
 function reqCtx(req, ip, b){
-  return {ip:ip, device:devlog.parseUA(req.headers["user-agent"]),
+  /* 参考来源 IP：仅用于日志展示，绝不参与锁定/鉴权判定（该头可由客户端伪造） */
+  var xff = String(req.headers["x-forwarded-for"]||"").split(",")[0].trim();
+  return {ip:ip, fwd:xff, device:devlog.parseUA(req.headers["user-agent"]),
     clientHint:devlog.sanitizeHint(b && b.deviceHint)};
 }
 function pickedSummary(rec){
@@ -282,12 +287,14 @@ var server = http.createServer(function(req, res){
       var nd = normDob(b.dob), ok = (nd === normDob(st.dob));
       pushAlert(s, st.id, ok, ip);
 
-      var fm = failMap[ip] || {n:0, until:0};
+      var lk = lockKey(ip, cls, q);
+      var fm = failMap[lk] || {n:0, until:0};
+      if(fm.until && fm.until <= Date.now()) fm = {n:0, until:0};  // 锁定期已过，重新计数
       if(fm.until && fm.until > Date.now()){
         putSeason(s); json(res, {code:"locked", until:fm.until, n:fm.n}); return;
       }
       if(ok){
-        failMap[ip] = {n:0, until:0};
+        failMap[lk] = {n:0, until:0};
         devlog.logEvent(s, st.id, "verify_ok", ctx, "通过本人验证");
         putSeason(s);
         json(res, {code:"ok", sid:st.id, dob:st.dob, student:st,
@@ -298,12 +305,12 @@ var server = http.createServer(function(req, res){
       /* ===== 以下均为验证失败：只返回脱敏线索，绝不返回真实凭据 ===== */
       devlog.logEvent(s, st.id, "verify_fail", ctx, "出生日期不一致");
       var n2 = fm.n + 1, hit = n2 >= FAIL_MAX;
-      failMap[ip] = hit ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0};
+      failMap[lk] = hit ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0};
       var masked = {cn:maskCn(st.cn), cls:st.cls, g:st.g};
       var rec = s.records[st.id];
       if(rec && !rec.unlocked){
         putSeason(s);
-        json(res, {code:"locked", n:n2, until:failMap[ip].until, masked:masked});
+        json(res, {code:"locked", n:n2, until:failMap[lk].until, masked:masked});
         return;
       }
       if(!b.nameOk){
@@ -321,7 +328,7 @@ var server = http.createServer(function(req, res){
       putSeason(s);
       json(res, {code:"ticket", sid:st.id,
         ticket:{status:"wait", round:round, at:tk.at, text:tk.text},
-        masked:masked, fails:n2, until:failMap[ip].until});
+        masked:masked, fails:n2, until:failMap[lk].until});
     });
     return;
   }
