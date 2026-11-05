@@ -132,7 +132,8 @@ th{background:#F1EFE8;font-weight:500;white-space:nowrap}
 <script>
 /* ================= 示例数据：待教务提供正式清单后替换 ================= */
 var CLASSES = ["IG1","IG2","AS1","AS2","AS3","A21","A22"];
-var STUDENTS = [
+/* 虚构演示名单：仅在离线/无服务端时加载。生产模式前端不预置全量学生数据。 */
+var DEMO_ROSTER = [
   {id:"S001",cls:"IG1",cn:"张思远",en:"ZHANG SIYUAN",g:"男",dob:"2009-03-12"},
   {id:"S002",cls:"IG1",cn:"李佳怡",en:"LI JIAYI",g:"女",dob:"2009-07-04"},
   {id:"S003",cls:"IG2",cn:"王一诺",en:"WANG YINUO",g:"女",dob:"2009-01-22"},
@@ -148,6 +149,7 @@ var STUDENTS = [
   {id:"S013",cls:"A22",cn:"徐乐言",en:"XU LEYAN",g:"女",dob:"2007-03-08"},
   {id:"S014",cls:"A22",cn:"林嘉树",en:"LIN JIASHU",g:"男",dob:"2007-09-17"}
 ];
+var STUDENTS = [];
 var SUBJECTS = [
   {k:"math",n:"数学",en:"Mathematics",groups:[
     {n:"",units:["P1-WMA11","P2-WMA12","P3-WMA13","P4-WMA14","S1-WST01","S2-WST02","S3-WST03","M1-WME01","M2-WME02","M3-WME03","F1-WFM01","F2-WFM02","F3-WFM03","D1-WDM11"]},
@@ -166,7 +168,7 @@ var SUBJECTS = [
   {k:"oth",n:"其他",en:"Other",free:true}
 ];
 /* 姓名大写统一规范：无论主数据存的是 ZHANG SAN 还是 Zhang San，一律按全大写展示与导出 */
-STUDENTS.forEach(function(s){ s.en = String(s.en||"").toUpperCase().replace(/\s+/g," ").trim(); });
+DEMO_ROSTER.forEach(function(s){ s.en = String(s.en||"").toUpperCase().replace(/\s+/g," ").trim(); });
 var WINDOW = {start:"2026-10-25T08:00", end:"2026-11-05T18:00"};
 var WIN_TEXT = "2026 年 10 月 25 日 08:00 至 11 月 5 日 18:00";
 var NOTICES = [
@@ -179,7 +181,8 @@ var NOTICES = [
 var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
 
 /* ================= 状态 ================= */
-var S = {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false};
+function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
+var S = freshState();
 var LSK = "reg_records_v2", LSU = "reg_current_v2", LSM = "reg_master_v3", LST = "reg_tickets_v3";
 function load(){try{return JSON.parse(localStorage.getItem(LSK)||"{}")}catch(e){return {}}}
 function save(r){localStorage.setItem(LSK,JSON.stringify(r)); syncLater();}
@@ -231,15 +234,21 @@ function bootServer(){
     var old = ""; try{ old = localStorage.getItem("reg_season")||"" }catch(e){}
     if(old && old !== b.seasonId){
       [LSK,LSU,LSM,LST,LSF,LSA,LSP].forEach(function(k){ localStorage.removeItem(k) });
-      S = {step:0,cls:"",nameQ:"",sid:"",vrf:false,dobTry:"",dobOK:"",nameOk:false,probeWarn:false,ok:null,errText:"",sig1:"",picked:{},other:{s:"",u:""},sig2:"",subAt:"",agree:false,admin:false};
+      S = freshState();
     }
     try{ localStorage.setItem("reg_season", b.seasonId) }catch(e){}
     SERVER_SEASON = b.seasonId;
     applyBoot(b);
+    /* 生产模式：浏览器不保留全班名单，只保留本会话已验证的本人档案 */
+    if(!(STUDENTS.length === 1 && S.vrf && STUDENTS[0].id === S.sid)){
+      STUDENTS = [];
+      if(S.vrf){ S = freshState(); saveCur(S); }
+    }
     syncTip("已连接服务器 · " + b.seasonId);
     return true;
   }).catch(function(){
     API_ON = false;
+    STUDENTS = DEMO_ROSTER.map(function(x){ return Object.assign({}, x); });
     syncTip("离线演示模式（数据只存在本机）", true);
     var bn = document.getElementById("hdBanner");
     if(bn) bn.textContent = "离线演示：未连接到服务器，数据只保存在本机浏览器，仅供流程演示。";
@@ -515,13 +524,13 @@ function doVerifyLocal(){
     saveCur(S); return;
   }
   var T = tickets(), old = T[S.sid];
-  if(old && old.status==="rejected"){ S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify(); return; }
+  /* 被驳回的工单不作为放行凭据：仍须用正确出生日期通过本人验证 */
   if(!S.nameOk){ $("msg").innerHTML = nameCheckHTML(st, nd); bindNameCheck(); return; }
   /* 本人已确认姓名无误：计一次失败、生成出生日期纠错工单并放行（提交仍锁定） */
   var n3 = f.n + 1, hit3 = (n3 >= FAIL_MAX);
   saveFail(hit3 ? {n:n3, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n3, until:0});
   var round = old ? (old.status==="wait" ? (old.round||1) : (old.round||0)+1) : 1;
-  T[S.sid] = {status:"wait", round:round, text:"出生日期验证不一致：本人填写 "+nd+"，学籍记录 "+st.dob+"。",
+  T[S.sid] = {status:"wait", round:round, text:"出生日期验证不一致：本人填写 "+nd+"，与学籍记录不符，请教务线下核实。",
     at:new Date().toISOString(), auto:true, dobTry:nd};
   saveTickets(T);
   S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify();
@@ -568,9 +577,16 @@ function doVerify(){
       $("msg").innerHTML = nameCheckMasked(res.masked, res.tryDob); bindNameCheck();
       return;
     }
+    if(res.code === "ticket"){
+      /* 出生日期未通过：只登记等待教务核实，绝不进入本人档案、也不清零失败计数 */
+      S.vrf = false; S.nameOk = false; saveCur(S);
+      $("msg").innerHTML = '<div class="lockbox"><b>已提交教务核实</b>你填写的出生日期与学籍记录不一致，教务核对后会联系你。请核对身份证件后重新验证，或携带证件到教务线下处理。</div>';
+      return;
+    }
     SYNC_LOCK = true;
     S.sid = res.sid; S.dobOK = res.dob; S.vrf = true; S.nameOk = false;
     STUDENTS = STUDENTS.filter(function(x){ return x.id !== res.sid }).concat([res.student]);
+    try{ sessionStorage.setItem("reg_self_"+(SERVER_SEASON||""), JSON.stringify(res.student)); }catch(e){}
     var mm = master(); delete mm[res.sid]; saveMaster(mm);
     if(res.record){ var rr = load(); rr[res.sid] = res.record; save(rr); }
     if(res.ticket){ var tt = tickets(); tt[res.sid] = res.ticket; saveTickets(tt); }
@@ -1135,13 +1151,21 @@ $("dbgReset").onclick = function(){
   localStorage.removeItem(LSK); localStorage.removeItem(LSU); localStorage.removeItem(LSM); localStorage.removeItem(LST);
   localStorage.removeItem(LSF); localStorage.removeItem(LSA); clearProbe();
   ADMIN_EDIT = null; ADMIN_TOKEN = "";
-  S={step:0,cls:"",nameQ:"",sid:"",vrf:false,dobTry:"",dobOK:"",nameOk:false,probeWarn:false,ok:null,errText:"",sig1:"",picked:{},other:{s:"",u:""},sig2:"",subAt:"",agree:false,admin:false};
+  try{ sessionStorage.removeItem("reg_self_"+(SERVER_SEASON||"")); }catch(e){}
+  S = freshState();
   render();
 };
 (function init(){
   try{ var c = JSON.parse(localStorage.getItem(LSU)||"null"); if(c) S = c; }catch(e){}
   try{ SERVER_SEASON = localStorage.getItem("reg_season")||"" }catch(e){}
   S.admin = false;
+  /* 刷新后只恢复本人档案；恢复不到就要求重新验证，避免显示错误档案 */
+  try{
+    var _season = localStorage.getItem("reg_season")||"";
+    var _self = JSON.parse(sessionStorage.getItem("reg_self_"+_season)||"null");
+    if(S.vrf && _self && _self.id === S.sid){ STUDENTS = [_self]; }
+    else if(S.vrf){ S = freshState(); saveCur(S); }
+  }catch(e){ if(S.vrf){ S = freshState(); saveCur(S); } }
   render();
   bootServer().then(function(ok){ if(ok){ var d=$("dbgWin"); if(d) d.value="auto"; render(); } });
 })();

@@ -185,7 +185,8 @@ var NOTICES = [
 var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
 
 /* ================= 状态 ================= */
-var S = {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false};
+function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
+var S = freshState();
 var LSK = "reg_records_v2", LSU = "reg_current_v2", LSM = "reg_master_v3", LST = "reg_tickets_v3";
 function load(){try{return JSON.parse(localStorage.getItem(LSK)||"{}")}catch(e){return {}}}
 function save(r){localStorage.setItem(LSK,JSON.stringify(r)); syncLater();}
@@ -245,7 +246,7 @@ function bootServer(){
     var old = ""; try{ old = localStorage.getItem("reg_season")||"" }catch(e){}
     if(old && old !== b.seasonId){
       [LSK,LSU,LSM,LST,LSF,LSA,LSP].forEach(function(k){ localStorage.removeItem(k) });
-      S = {step:0,cls:"",nameQ:"",sid:"",vrf:false,dobTry:"",dobOK:"",nameOk:false,probeWarn:false,ok:null,errText:"",sig1:"",picked:{},other:{s:"",u:""},sig2:"",subAt:"",agree:false,admin:false};
+      S = freshState();
     }
     try{ localStorage.setItem("reg_season", b.seasonId) }catch(e){}
     SERVER_SEASON = b.seasonId;
@@ -529,13 +530,13 @@ function doVerifyLocal(){
     saveCur(S); return;
   }
   var T = tickets(), old = T[S.sid];
-  if(old && old.status==="rejected"){ S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify(); return; }
+  /* 被驳回的工单不作为放行凭据：仍须用正确出生日期通过本人验证 */
   if(!S.nameOk){ $("msg").innerHTML = nameCheckHTML(st, nd); bindNameCheck(); return; }
   /* 本人已确认姓名无误：计一次失败、生成出生日期纠错工单并放行（提交仍锁定） */
   var n3 = f.n + 1, hit3 = (n3 >= FAIL_MAX);
   saveFail(hit3 ? {n:n3, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n3, until:0});
   var round = old ? (old.status==="wait" ? (old.round||1) : (old.round||0)+1) : 1;
-  T[S.sid] = {status:"wait", round:round, text:"出生日期验证不一致：本人填写 "+nd+"，学籍记录 "+st.dob+"。",
+  T[S.sid] = {status:"wait", round:round, text:"出生日期验证不一致：本人填写 "+nd+"，与学籍记录不符，请教务线下核实。",
     at:new Date().toISOString(), auto:true, dobTry:nd};
   saveTickets(T);
   S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify();
@@ -582,9 +583,16 @@ function doVerify(){
       $("msg").innerHTML = nameCheckMasked(res.masked, res.tryDob); bindNameCheck();
       return;
     }
+    if(res.code === "ticket"){
+      /* 出生日期未通过：只登记等待教务核实，绝不进入本人档案、也不清零失败计数 */
+      S.vrf = false; S.nameOk = false; saveCur(S);
+      $("msg").innerHTML = '<div class="lockbox"><b>已提交教务核实</b>你填写的出生日期与学籍记录不一致，教务核对后会联系你。请核对身份证件后重新验证，或携带证件到教务线下处理。</div>';
+      return;
+    }
     SYNC_LOCK = true;
     S.sid = res.sid; S.dobOK = res.dob; S.vrf = true; S.nameOk = false;
     STUDENTS = STUDENTS.filter(function(x){ return x.id !== res.sid }).concat([res.student]);
+    try{ sessionStorage.setItem("reg_self_"+(SERVER_SEASON||""), JSON.stringify(res.student)); }catch(e){}
     var mm = master(); delete mm[res.sid]; saveMaster(mm);
     if(res.record){ var rr = load(); rr[res.sid] = res.record; save(rr); }
     if(res.ticket){ var tt = tickets(); tt[res.sid] = res.ticket; saveTickets(tt); }
@@ -1149,7 +1157,8 @@ $("dbgReset").onclick = function(){
   localStorage.removeItem(LSK); localStorage.removeItem(LSU); localStorage.removeItem(LSM); localStorage.removeItem(LST);
   localStorage.removeItem(LSF); localStorage.removeItem(LSA); clearProbe();
   ADMIN_EDIT = null; ADMIN_TOKEN = "";
-  S={step:0,cls:"",nameQ:"",sid:"",vrf:false,dobTry:"",dobOK:"",nameOk:false,probeWarn:false,ok:null,errText:"",sig1:"",picked:{},other:{s:"",u:""},sig2:"",subAt:"",agree:false,admin:false};
+  try{ sessionStorage.removeItem("reg_self_"+(SERVER_SEASON||"")); }catch(e){}
+  S = freshState();
   render();
 };
 (function init(){

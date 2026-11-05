@@ -1,7 +1,11 @@
 # 运行时数据：含学生个人信息、提交记录与后台口令，禁止上传
 data/
 src/data/
+*.key
 *.log
 node_modules/
+__pycache__/
+*.pyc
+*.csv
 .DS_Store
 Thumbs.db

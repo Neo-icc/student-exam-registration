@@ -1,6 +1,7 @@
 /* 学生报考系统 · 服务端
-   零依赖，仅用 Node 内置模块。数据按「考试季」分文件存放。
-   启动： node server.js    （端口可用环境变量 PORT 覆盖） */
+   零依赖，仅用 Node 内置模块。数据按「考试季」分文件存放，静态数据 AES-256-GCM 加密落盘。
+   启动： node server.js    （端口可用环境变量 PORT 覆盖）
+   密钥： data/.key（首次启动自动生成，务必备份且不上传）或环境变量 EXAM_DATA_KEY */
 var http = require("http"), fs = require("fs"), path = require("path"), crypto = require("crypto");
 
 var PORT = process.env.PORT || 8080;
@@ -10,9 +11,9 @@ var SEASONS = path.join(DATA, "seasons");
 var IDX = path.join(DATA, "index.json");
 var ADMINF = path.join(DATA, "admin.json");
 
+var store = require("./lib/secure-store")(DATA);
+var readJSON = store.readJSON, writeJSON = store.writeJSON;
 function mkdirp(p){ if(!fs.existsSync(p)) fs.mkdirSync(p, {recursive:true}); }
-function readJSON(p, def){ try{ return JSON.parse(fs.readFileSync(p, "utf8")); }catch(e){ return def; } }
-function writeJSON(p, o){ mkdirp(path.dirname(p)); fs.writeFileSync(p, JSON.stringify(o, null, 2), "utf8"); }
 mkdirp(SEASONS);
 
 /* ---------- 工具 ---------- */
@@ -30,6 +31,12 @@ function normDob(v){
   return String(v||"").trim();
 }
 function upper(v){ return String(v||"").toUpperCase().replace(/\s+/g," ").trim(); }
+/* 姓名匹配：忽略大小写、空格、连字符、间隔号；支持中文名或姓名大写拼音 */
+function normName(v){ return String(v||"").replace(/[\s·・.\-'’]/g,"").toUpperCase(); }
+function matchName(x, q){
+  var n = normName(q); if(!n) return false;
+  return normName(x.cn) === n || normName(x.en) === n;
+}
 function maskCn(s){ var t=String(s||"").trim(); return t.length<=1 ? t : t[0]+new Array(t.length).join("*"); }
 function nowISO(){ return new Date().toISOString(); }
 
@@ -88,7 +95,8 @@ function newSeason(id, name, start, end, classes, subjects, notices, students){
 /* ---------- 数据读写 ---------- */
 var FAIL_MAX = 3, FAIL_LOCK_MIN = 15;
 var failMap = {};   // ip -> {n, until}
-var tokens = {};    // token -> expire ms
+var tokens = {};    // token -> {exp, ip}
+var loginFail = {}; // ip -> {n, until}
 
 function idx(){ return readJSON(IDX, null); }
 function ensureSeed(){
@@ -104,6 +112,7 @@ function ensureSeed(){
   return i;
 }
 ensureSeed();
+var MIGRATED = store.migrateAll();   // 历史明文数据一次性加密
 function seasonFile(id){ return path.join(SEASONS, id+".json"); }
 function getSeason(id){ return readJSON(seasonFile(id), null); }
 function putSeason(s){ writeJSON(seasonFile(s.id), s); }
@@ -143,7 +152,14 @@ var MIME = {".html":"text/html; charset=utf-8", ".js":"text/javascript; charset=
   ".json":"application/json; charset=utf-8", ".svg":"image/svg+xml", ".ico":"image/x-icon", ".png":"image/png", ".md":"text/markdown; charset=utf-8"};
 
 function send(res, code, body, type){
-  res.writeHead(code, {"Content-Type": type||"application/json; charset=utf-8", "Cache-Control":"no-store"});
+  res.writeHead(code, {
+    "Content-Type": type||"application/json; charset=utf-8",
+    "Cache-Control":"no-store",
+    "X-Content-Type-Options":"nosniff",
+    "X-Frame-Options":"DENY",
+    "Referrer-Policy":"no-referrer",
+    "Content-Security-Policy":"default-src 'self' 'unsafe-inline' data: blob:; connect-src 'self'; frame-ancestors 'none'"
+  });
   res.end(body);
 }
 function json(res, obj){ send(res, 200, JSON.stringify(obj)); }
@@ -154,8 +170,13 @@ function body(req, cb){
   req.on("end", function(){ try{ cb(b ? JSON.parse(b) : {}); }catch(e){ cb({}); } });
 }
 function clientIP(req){ return (req.headers["x-forwarded-for"]||"").split(",")[0].trim() || req.socket.remoteAddress || "?"; }
-function checkToken(t){ var e = tokens[t]; return e && e > Date.now(); }
-function needAdmin(s, t){ return checkToken(t); }
+function checkToken(t, ip){
+  var e = tokens[t];
+  if(!e || !(e.exp > Date.now())) return false;
+  if(ip && e.ip && e.ip !== ip) return false;   // 令牌绑定登录来源 IP
+  return true;
+}
+function needAdmin(s, t, ip){ return checkToken(t, ip); }
 
 var server = http.createServer(function(req, res){
   var u = req.url.split("?")[0];
@@ -163,9 +184,15 @@ var server = http.createServer(function(req, res){
 
   /* 静态资源 */
   if(u.indexOf("/api/") !== 0){
-    var rel = u === "/" ? "/index.html" : u;
-    var fp = path.join(ROOT, "public", rel.replace(/\.\./g, ""));
-    if(!fs.existsSync(fp) || fs.statSync(fp).isDirectory()) fp = path.join(ROOT, "public", "index.html");
+    var rel;
+    try{ rel = decodeURIComponent(u === "/" ? "/index.html" : u); }catch(e){ rel = "/index.html"; }
+    var pubRoot = path.resolve(ROOT, "public");
+    var fp = path.resolve(pubRoot, "." + rel.replace(/\.\./g, ""));
+    if((fp !== pubRoot && fp.indexOf(pubRoot + path.sep) !== 0) ||
+       /(^|[\\/])\./.test(rel) || /\.key$/i.test(rel)){
+      send(res, 403, "forbidden", "text/plain; charset=utf-8"); return;
+    }
+    if(!fs.existsSync(fp) || fs.statSync(fp).isDirectory()) fp = path.join(pubRoot, "index.html");
     try{
       var buf = fs.readFileSync(fp);
       send(res, 200, buf, MIME[path.extname(fp).toLowerCase()] || "application/octet-stream");
@@ -186,20 +213,23 @@ var server = http.createServer(function(req, res){
     return;
   }
 
-  /* 身份验证 */
+  /* 身份验证：姓名 + 出生日期全部在服务端比对，名单绝不下发浏览器
+     安全约束：验证未通过时，响应中不得出现真实出生日期、完整档案或已提交记录。 */
   if(u === "/api/verify" && req.method === "POST"){
     body(req, function(b){
       var s = cur();
       var cls = String(b.cls||"").trim(), q = String(b.name||"").trim();
       var pool = (s.students||[]).filter(function(x){ return x.cls === cls; });
-      var m = pool.filter(function(x){ return x.cn === q || upper(x.en).replace(/\s+/g,"") === upper(q).replace(/\s+/g,""); });
+      var m = pool.filter(function(x){ return matchName(x, q); });
       if(m.length !== 1){ pushAlert(s, "", false, ip); putSeason(s); json(res, {code:"nomatch"}); return; }
       var st = merged(s, m[0].id);
       var nd = normDob(b.dob), ok = (nd === normDob(st.dob));
       pushAlert(s, st.id, ok, ip);
-      var fm = failMap[ip] || {n:0, until:0};
-      if(fm.until && fm.until > Date.now()){ putSeason(s); json(res, {code:"locked", until:fm.until, n:fm.n}); return; }
 
+      var fm = failMap[ip] || {n:0, until:0};
+      if(fm.until && fm.until > Date.now()){
+        putSeason(s); json(res, {code:"locked", until:fm.until, n:fm.n}); return;
+      }
       if(ok){
         failMap[ip] = {n:0, until:0};
         putSeason(s);
@@ -207,35 +237,33 @@ var server = http.createServer(function(req, res){
           record:s.records[st.id]||null, ticket:s.tickets[st.id]||null});
         return;
       }
-      /* 不匹配 */
+
+      /* ===== 以下均为验证失败：只返回脱敏线索，绝不返回真实凭据 ===== */
+      var n2 = fm.n + 1, hit = n2 >= FAIL_MAX;
+      failMap[ip] = hit ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0};
+      var masked = {cn:maskCn(st.cn), cls:st.cls, g:st.g};
       var rec = s.records[st.id];
       if(rec && !rec.unlocked){
-        /* 已提交过：查看回执也必须通过本人验证，不放行 */
-        var n2 = fm.n + 1, hit = n2 >= FAIL_MAX;
-        failMap[ip] = hit ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0};
         putSeason(s);
-        json(res, {code:"locked", n:n2, until:failMap[ip].until, masked:{cn:maskCn(st.cn), cls:st.cls, g:st.g}});
-        return;
-      }
-      var old = s.tickets[st.id];
-      if(old && old.status === "rejected"){
-        putSeason(s);
-        json(res, {code:"ok", sid:st.id, dob:st.dob, student:st, record:rec||null, ticket:old});
+        json(res, {code:"locked", n:n2, until:failMap[ip].until, masked:masked});
         return;
       }
       if(!b.nameOk){
         putSeason(s);
-        json(res, {code:"nameCheck", sid:st.id, tryDob:nd, masked:{cn:maskCn(st.cn), cls:st.cls, g:st.g}});
+        json(res, {code:"nameCheck", sid:st.id, tryDob:nd, masked:masked});
         return;
       }
-      var n3 = fm.n + 1, hit3 = n3 >= FAIL_MAX;
-      failMap[ip] = hit3 ? {n:n3, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n3, until:0};
+      /* 本人确认姓名无误：登记纠错工单；工单文本不得含学籍记录的真实出生日期 */
+      var old = s.tickets[st.id];
       var round = old ? (old.status === "wait" ? (old.round||1) : (old.round||0)+1) : 1;
-      s.tickets[st.id] = {status:"wait", round:round, text:"出生日期验证不一致：本人填写 "+nd+"，学籍记录 "+st.dob+"。",
+      var tk = {status:"wait", round:round,
+        text:"出生日期验证不一致：本人填写 "+nd+"，与学籍记录不符，请教务线下核实。",
         at:nowISO(), auto:true, dobTry:nd, ip:ip};
+      s.tickets[st.id] = tk;
       putSeason(s);
-      json(res, {code:"ticket", sid:st.id, dob:st.dob, student:st, record:rec||null,
-        ticket:s.tickets[st.id], fails:n3, until:failMap[ip].until});
+      json(res, {code:"ticket", sid:st.id,
+        ticket:{status:"wait", round:round, at:tk.at, text:tk.text},
+        masked:masked, fails:n2, until:failMap[ip].until});
     });
     return;
   }
@@ -257,7 +285,14 @@ var server = http.createServer(function(req, res){
         b.record.modCount = oldR ? (oldR.modCount||0)+1 : 0;
         s.records[sid] = b.record;
       }
-      if(b.ticket){ s.tickets[sid] = b.ticket; }
+      /* 学生端只允许把「教务已更正」的工单复核为已确认，不能伪造或覆盖工单状态 */
+      if(b.ticket){
+        var curTk = s.tickets[sid];
+        if(curTk && curTk.status === "fixed" && b.ticket.status === "closed"){
+          curTk.status = "closed"; curTk.confirmedAt = nowISO();
+          s.tickets[sid] = curTk;
+        }
+      }
       putSeason(s);
       json(res, {ok:true, record:s.records[sid]||null, ticket:s.tickets[sid]||null});
     });
@@ -267,17 +302,24 @@ var server = http.createServer(function(req, res){
   /* 教务登录 */
   if(u === "/api/admin/login" && req.method === "POST"){
     body(req, function(b){
+      var lf = loginFail[ip] || {n:0, until:0};
+      if(lf.until && lf.until > Date.now()){ err(res, "尝试次数过多，请 10 分钟后再试"); return; }
       var a = readJSON(ADMINF, {pass:"exam2026"});
-      if(String(b.pass||"") !== String(a.pass||"")){ err(res, "口令不正确"); return; }
-      var t = crypto.randomBytes(16).toString("hex");
-      tokens[t] = Date.now() + 8*3600*1000;
+      if(String(b.pass||"") !== String(a.pass||"")){
+        var ln = lf.n + 1;
+        loginFail[ip] = ln >= 5 ? {n:ln, until:Date.now()+10*60000} : {n:ln, until:0};
+        err(res, "口令不正确"); return;
+      }
+      loginFail[ip] = {n:0, until:0};
+      var t = crypto.randomBytes(24).toString("hex");
+      tokens[t] = {exp:Date.now() + 8*3600*1000, ip:ip};
       json(res, {ok:true, token:t});
     });
     return;
   }
   if(u === "/api/admin/state" && req.method === "GET"){
     var tk2 = decodeURIComponent((req.url.split("token=")[1]||"").split("&")[0]);
-    if(!checkToken(tk2)){ err(res, "未登录或登录已过期"); return; }
+    if(!checkToken(tk2, ip)){ err(res, "未登录或登录已过期"); return; }
     var sc = cur();
     json(res, {ok:true, seasonId:sc.id, name:sc.name, seasonLabel:sc.name,
       win:winStateOf(sc), winText:winText(sc.window), window:sc.window,
@@ -289,7 +331,7 @@ var server = http.createServer(function(req, res){
   }
   if(u === "/api/admin/save" && req.method === "POST"){
     body(req, function(b){
-      if(!checkToken(b.token)){ err(res, "未登录或登录已过期"); return; }
+      if(!checkToken(b.token, ip)){ err(res, "未登录或登录已过期"); return; }
       var s2 = cur();
       if(b.records){ s2.records = b.records; }
       if(b.tickets){ s2.tickets = b.tickets; }
@@ -303,7 +345,7 @@ var server = http.createServer(function(req, res){
   /* 考试季管理与名单导入 */
   if(u === "/api/admin/season" && req.method === "POST"){
     body(req, function(b){
-      if(!checkToken(b.token)){ err(res, "未登录或登录已过期"); return; }
+      if(!checkToken(b.token, ip)){ err(res, "未登录或登录已过期"); return; }
       var act = b.action;
       if(act === "list"){ json(res, {ok:true, seasons:seasonList(), current:curId()}); return; }
       if(act === "switch"){
@@ -351,8 +393,10 @@ var server = http.createServer(function(req, res){
             en:upper(x.en), g:String(x.g||"").trim(), dob:normDob(x.dob)};
         }).filter(function(x){ return x.id && x.cn; });
         s5.students = list; s5.rosterAt = nowISO();
+        var clsList = Array.from(new Set(list.map(function(x){return x.cls}))).filter(Boolean);
+        s5.classes = clsList;              // 同步学生端班级下拉，保证姓名匹配可用
         putSeason(s5);
-        json(res, {ok:true, count:list.length, classes:Array.from(new Set(list.map(function(x){return x.cls}))) });
+        json(res, {ok:true, count:list.length, classes:clsList});
         return;
       }
       err(res, "未知操作");
@@ -368,6 +412,9 @@ server.listen(PORT, function(){
   console.log(" 学生报考系统已启动");
   console.log(" 本机访问： http://localhost:" + PORT);
   console.log(" 当前考试季：" + curId());
-  console.log(" 教务后台口令：见 data/admin.json（默认 exam2026）");
+  console.log(" 教务后台口令：node tools/set-password.js <新口令>（默认 exam2026，务必先改）");
+  console.log(" 数据加密：" + (store.encrypted ? "AES-256-GCM 已启用" : "未启用（EXAM_PLAINTEXT=1）"));
+  if(store.encrypted) console.log(" 密钥来源：" + store.keySource + "  <- 请备份，切勿上传仓库");
+  if(MIGRATED) console.log(" 已加密迁移历史明文文件：" + MIGRATED + " 个");
   console.log("------------------------------------------");
 });
