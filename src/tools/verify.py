@@ -359,6 +359,14 @@ def main():
     r5 = verify("AS1", "赵子睿", "2008-09-09")
     check("I11 共享出口 IP 下另一学生仍可正常验证（锁定按目标隔离）",
           r5.get("code") == "ok", r5.get("code"))
+    # 核心回归：同一学生可用中文名或大写拼音验证；若按输入姓名计数，交替写法即可绕过次数限制
+    a1 = verify("AS2", "孙嘉禾", "2000-04-04")
+    a2 = verify("AS2", "SUN JIAHE", "2000-04-04")
+    a3 = verify("AS2", "孙嘉禾", "2000-04-04")
+    check("I12 中文名/拼音交替不能绕过失败锁定（按学生 ID 累计 1→2→3）",
+          a1.get("fails") == 1 and a2.get("fails") == 2
+          and a3.get("fails") == 3 and bool(a3.get("locked")),
+          [a1.get("fails"), a2.get("fails"), a3.get("fails"), a3.get("locked")])
 
     # ===== J 语法与结构 =====
     section("J 结构完整性")

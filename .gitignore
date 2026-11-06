@@ -9,3 +9,7 @@ __pycache__/
 *.csv
 .DS_Store
 Thumbs.db
+# 导出的加密备份与名单表格：含学生个人信息，禁止上传
+*.bak
+*.xlsx
+*.xls

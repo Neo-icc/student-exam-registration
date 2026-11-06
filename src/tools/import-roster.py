@@ -372,6 +372,8 @@ def main():
               "请尽快补全或用 --map en=列名 指定。")
     if "id" not in mapping:
         print("· 未识别到学号列，将按行序自动生成 S001、S002 …")
+        print("⚠ 若已开启第二验证因子（sid4），自动学号的后四位（0001、0002 …）将成为学生的第二因子，"
+              "请补全真实学号、另行告知学生，或在后台关闭双因子后再导入。")
 
     students, issues, dup = build_students(rows, hi, mapping)
     classes = sorted({s["cls"] for s in students})
@@ -395,6 +397,8 @@ def main():
         print("  %-8s %-8s %-8s %-14s %-6s %-10s" %
               (s["id"], s["cls"], mask_cn(s["cn"]), mask_en(s["en"]), s["g"] or "-", mask_dob(s["dob"])))
 
+    print("\n提示：考试季开启第二验证因子时，学生验证须填「学号后四位」；"
+          "学号数字不足 4 位自动左补零（S001 → 0001，TEST001 → 0001），报考期间请勿改动学号。")
     if not args.commit:
         print("\n[预览模式] 未写入任何数据。确认无误后加 --commit 导入。")
         return
