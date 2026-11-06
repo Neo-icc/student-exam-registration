@@ -14,6 +14,7 @@ var ADMINF = path.join(DATA, "admin.json");
 var store = require("./lib/secure-store")(DATA);
 var readJSON = store.readJSON, writeJSON = store.writeJSON;
 var devlog = require("./lib/device-log");
+var backup = require("./lib/backup");
 function mkdirp(p){ if(!fs.existsSync(p)) fs.mkdirSync(p, {recursive:true}); }
 mkdirp(SEASONS);
 
@@ -38,9 +39,12 @@ function matchName(x, q){
   var n = normName(q); if(!n) return false;
   return normName(x.cn) === n || normName(x.en) === n;
 }
-/* 失败锁定粒度：出口 IP + 目标学生。校园 NAT / 云端反向代理下所有访客可能共用
-   一个出口 IP（实测云端恒为 127.0.0.1），只按 IP 计数会导致一人填错锁住所有人。 */
-function lockKey(ip, cls, q){ return ip + "|" + String(cls||"") + "|" + normName(q); }
+/* 失败锁定粒度：出口 IP + 班级 + 匹配到的学生 ID。
+   - 校园 NAT / 云端反向代理下所有访客可能共用一个出口 IP（实测云端恒为 127.0.0.1），
+     只按 IP 计数会导致一人填错锁住所有人。
+   - 必须用匹配到的学生 ID，不能用输入的姓名字符串：同一学生可用中文名或大写拼音验证，
+     若按姓名字符串计数，交替使用两种写法即可绕过失败次数限制。 */
+function lockKey(ip, cls, sid){ return ip + "|" + String(cls||"") + "|" + String(sid||""); }
 function maskCn(s){ var t=String(s||"").trim(); return t.length<=1 ? t : t[0]+new Array(t.length).join("*"); }
 function nowISO(){ return new Date().toISOString(); }
 
@@ -87,12 +91,14 @@ var SEED_NOTICES = [
 ];
 var SEED_SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
 var SEED_PAPER_NOTE = "本人已在线上核对并确认本人基本信息（姓名大写拼写、性别、出生日期）无误；本次签字仅确认下列报考科目与单元，请逐项核对后签名。";
+var DEFAULT_PRIVACY_NOTE = "为完成本次考试报名，本系统需处理你的个人信息（姓名、性别、出生日期、报考科目），并记录访问时间、IP 地址及终端设备型号用于身份核验与流程留痕。上述信息仅用于本次报考及学校教务管理，按学校规定期限留存，不向无关第三方提供。继续操作即表示你已阅读并同意上述处理；如不同意请联系教务线下办理。";
 
 function newSeason(id, name, start, end, classes, subjects, notices, students){
   return {id:id, name:name||id, window:{start:start, end:end}, classes:classes||[],
     subjects:subjects||SEED_SUBJECTS, notices:notices||SEED_NOTICES.slice(),
     srcNote:SEED_SRC_NOTE, paperNote:SEED_PAPER_NOTE,
     students:students||[], overrides:{}, records:{}, tickets:{}, alerts:[], logs:[],
+    secondFactor:"off", privacyNote:DEFAULT_PRIVACY_NOTE, privacyRequired:true,
     archived:false, createdAt:nowISO()};
 }
 
@@ -102,7 +108,22 @@ var failMap = {};   // lockKey -> {n, until}
 var tokens = {};    // token -> {exp, ip}
 var loginFail = {}; // ip -> {n, until}
 
-function idx(){ return readJSON(IDX, null); }
+function idx(){
+  var i = readJSON(IDX, null);
+  if(!i){
+    /* 索引意外丢失时，从已有考试季文件恢复；不重建名单、不重置后台口令 */
+    try{
+      var files = fs.readdirSync(SEASONS).filter(function(f){
+        return /\.json$/.test(f) && f.indexOf(".tmp-") < 0;
+      });
+      if(files.length){
+        i = {current:files[0].replace(/\.json$/, "")};
+        writeJSON(IDX, i);
+      }
+    }catch(e){}
+  }
+  return i;
+}
 function ensureSeed(){
   var i = idx();
   if(!i){
@@ -120,7 +141,11 @@ var MIGRATED = store.migrateAll();   // 历史明文数据一次性加密
 function seasonFile(id){ return path.join(SEASONS, id+".json"); }
 function getSeason(id){ return readJSON(seasonFile(id), null); }
 function putSeason(s){ writeJSON(seasonFile(s.id), s); }
-function curId(){ return idx().current; }
+function curId(){
+  var i = idx();
+  if(!i || !i.current) throw new Error("考试季索引缺失：请恢复 data/ 目录，或从加密备份恢复考试季");
+  return i.current;
+}
 function cur(){ return getSeason(curId()); }
 function seasonList(){
   return fs.readdirSync(SEASONS).filter(function(f){ return /\.json$/.test(f); }).map(function(f){
@@ -168,10 +193,19 @@ function send(res, code, body, type){
 }
 function json(res, obj){ send(res, 200, JSON.stringify(obj)); }
 function err(res, msg){ json(res, {ok:false, error:msg}); }
-function body(req, cb){
+function body(req, res, cb){
   var b = "";
   req.on("data", function(d){ b += d; if(b.length > 4e6) req.destroy(); });
-  req.on("end", function(){ try{ cb(b ? JSON.parse(b) : {}); }catch(e){ cb({}); } });
+  req.on("end", function(){
+    var obj = {};
+    try{ obj = b ? JSON.parse(b) : {}; }catch(e){ obj = {}; }
+    /* 异步回调里的异常不能被外层 try/catch 捕获，这里单独兜底，避免整个进程退出 */
+    try{ cb(obj); }
+    catch(e){
+      console.error("[接口异常] " + (e && e.stack || e));
+      try{ err(res, "服务内部错误，请联系教务"); }catch(_){}
+    }
+  });
 }
 function clientIP(req){
   /* 默认不信任 X-Forwarded-For：该头可由客户端伪造，否则失败锁定会被随意绕过。
@@ -234,7 +268,7 @@ function sanitizeRecord(st, sid, bRec, oldR, ip, ctx){
   return r;
 }
 
-var server = http.createServer(function(req, res){
+function handle(req, res){
   var u = req.url.split("?")[0];
   var ip = clientIP(req);
 
@@ -265,16 +299,23 @@ var server = http.createServer(function(req, res){
     json(res, {ok:true, seasonId:s.id, name:s.name, seasonLabel:s.name,
       win:winStateOf(s), winText:winText(s.window), window:s.window,
       classes:s.classes, subjects:s.subjects, notices:s.notices,
-      srcNote:s.srcNote, paperNote:s.paperNote, serverTime:nowISO()});
+      srcNote:s.srcNote, paperNote:s.paperNote,
+      secondFactor:s.secondFactor||"off", privacyNote:s.privacyNote||DEFAULT_PRIVACY_NOTE,
+      privacyRequired:s.privacyRequired!==false, serverTime:nowISO()});
     return;
   }
 
   /* 身份验证：姓名 + 出生日期全部在服务端比对，名单绝不下发浏览器
      安全约束：验证未通过时，响应中不得出现真实出生日期、完整档案或已提交记录。 */
   if(u === "/api/verify" && req.method === "POST"){
-    body(req, function(b){
+    body(req, res, function(b){
       var s = cur();
       var ctx = reqCtx(req, ip, b);
+      /* 个人信息告知必须先同意；未同意时连姓名匹配都不做，避免任何信息探测 */
+      if(s.privacyRequired !== false && b.privacyOk !== true){
+        devlog.logEvent(s, "", "privacy_denied", ctx, "未同意个人信息处理告知");
+        putSeason(s); json(res, {code:"privacy"}); return;
+      }
       var cls = String(b.cls||"").trim(), q = String(b.name||"").trim();
       var pool = (s.students||[]).filter(function(x){ return x.cls === cls; });
       var m = pool.filter(function(x){ return matchName(x, q); });
@@ -284,10 +325,16 @@ var server = http.createServer(function(req, res){
         putSeason(s); json(res, {code:"nomatch"}); return;
       }
       var st = merged(s, m[0].id);
-      var nd = normDob(b.dob), ok = (nd === normDob(st.dob));
+      /* 可选第二因子：出生日期 + 学号后四位，默认关闭；两者都正确才算通过 */
+      var need2 = (s.secondFactor === "sid4");
+      var sid4 = String(b.sid4||"").replace(/\D/g, "");
+      /* 学号数字不足 4 位时左补零：S001 → "0001"，TEST001 → "0001" */
+      var real4 = String(st.id||"").replace(/\D/g, "").slice(-4).padStart(4, "0");
+      var sid4ok = !need2 || (sid4.length === 4 && sid4 === real4);
+      var nd = normDob(b.dob), ok = (nd === normDob(st.dob)) && sid4ok;
       pushAlert(s, st.id, ok, ip);
 
-      var lk = lockKey(ip, cls, q);
+      var lk = lockKey(ip, cls, st.id);
       var fm = failMap[lk] || {n:0, until:0};
       if(fm.until && fm.until <= Date.now()) fm = {n:0, until:0};  // 锁定期已过，重新计数
       if(fm.until && fm.until > Date.now()){
@@ -295,7 +342,9 @@ var server = http.createServer(function(req, res){
       }
       if(ok){
         failMap[lk] = {n:0, until:0};
-        devlog.logEvent(s, st.id, "verify_ok", ctx, "通过本人验证");
+        devlog.logEvent(s, st.id, "verify_ok", ctx, "通过本人验证"+(need2?"（双因子）":""));
+        if(s.privacyRequired !== false)
+          devlog.logEvent(s, st.id, "privacy_consent", ctx, "已同意个人信息处理告知");
         putSeason(s);
         json(res, {code:"ok", sid:st.id, dob:st.dob, student:st,
           record:s.records[st.id]||null, ticket:s.tickets[st.id]||null});
@@ -303,7 +352,7 @@ var server = http.createServer(function(req, res){
       }
 
       /* ===== 以下均为验证失败：只返回脱敏线索，绝不返回真实凭据 ===== */
-      devlog.logEvent(s, st.id, "verify_fail", ctx, "出生日期不一致");
+      devlog.logEvent(s, st.id, "verify_fail", ctx, need2 ? "出生日期或学号后四位不一致" : "出生日期不一致");
       var n2 = fm.n + 1, hit = n2 >= FAIL_MAX;
       failMap[lk] = hit ? {n:n2, until:Date.now()+FAIL_LOCK_MIN*60000} : {n:n2, until:0};
       var masked = {cn:maskCn(st.cn), cls:st.cls, g:st.g};
@@ -315,7 +364,8 @@ var server = http.createServer(function(req, res){
       }
       if(!b.nameOk){
         putSeason(s);
-        json(res, {code:"nameCheck", sid:st.id, tryDob:nd, masked:masked});
+        json(res, {code:"nameCheck", sid:st.id, tryDob:nd, masked:masked,
+          fails:n2, until:failMap[lk].until, locked:hit, secondFactor:need2});
         return;
       }
       /* 本人确认姓名无误：登记纠错工单；工单文本不得含学籍记录的真实出生日期 */
@@ -328,14 +378,14 @@ var server = http.createServer(function(req, res){
       putSeason(s);
       json(res, {code:"ticket", sid:st.id,
         ticket:{status:"wait", round:round, at:tk.at, text:tk.text},
-        masked:masked, fails:n2, until:failMap[lk].until});
+        masked:masked, fails:n2, until:failMap[lk].until, locked:hit});
     });
     return;
   }
 
   /* 学生端写回：只能写本人（sid + 出生日期双重校验） */
   if(u === "/api/push" && req.method === "POST"){
-    body(req, function(b){
+    body(req, res, function(b){
       var s = cur();
       var sid = String(b.sid||"");
       var ctx = reqCtx(req, ip, b);
@@ -388,7 +438,7 @@ var server = http.createServer(function(req, res){
 
   /* 教务登录 */
   if(u === "/api/admin/login" && req.method === "POST"){
-    body(req, function(b){
+    body(req, res, function(b){
       var lf = loginFail[ip] || {n:0, until:0};
       if(lf.until && lf.until > Date.now()){ err(res, "尝试次数过多，请 10 分钟后再试"); return; }
       var a = readJSON(ADMINF, {pass:"exam2026"});
@@ -406,16 +456,56 @@ var server = http.createServer(function(req, res){
   }
   /* 修改教务口令（数据已加密，须经接口改） */
   if(u === "/api/admin/passwd" && req.method === "POST"){
-    body(req, function(b){
+    body(req, res, function(b){
       if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
       var np = String(b.newPass||"");
       if(np.length < 8){ err(res, "新口令至少 8 位"); return; }
       var a = readJSON(ADMINF, {pass:"exam2026"});
       a.pass = np; writeJSON(ADMINF, a);
+      var keep = tokenOf(req, b);
+      Object.keys(tokens).forEach(function(t){ if(t !== keep) delete tokens[t]; });  // 其余会话立即失效
       var sc = cur();
       devlog.logEvent(sc, "", "admin_passwd", reqCtx(req, ip, b), "教务修改后台口令");
       putSeason(sc);
       json(res, {ok:true});
+    });
+    return;
+  }
+  /* 整季加密备份：导出密文文本，密钥由教务输入的备份口令派生，不依赖 data/.key */
+  if(u === "/api/admin/backup" && req.method === "POST"){
+    body(req, res, function(b){
+      if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
+      try{
+        var sb = cur();
+        var bk = backup.seal(sb, b.backupPass);
+        devlog.logEvent(sb, "", "admin_backup", reqCtx(req, ip, b), "导出加密备份（口令不落盘）");
+        putSeason(sb);
+        json(res, {ok:true, format:backup.FORMAT, seasonId:sb.id, exportedAt:bk.at,
+          checksum:bk.checksum, text:bk.text});
+      }catch(e){ err(res, e.message); }
+    });
+    return;
+  }
+  /* 从加密备份恢复：格式/口令/校验和/结构全部通过后才写盘 */
+  if(u === "/api/admin/restore" && req.method === "POST"){
+    body(req, res, function(b){
+      if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
+      try{
+        var r = backup.open(b.text, b.backupPass);
+        var o = r.obj;
+        if(!backup.validSeason(o)){ err(res, "备份内容不是有效的考试季数据"); return; }
+        if(b.checksum && crypto.createHash("sha256").update(String(b.text)).digest("hex") !== b.checksum){
+          err(res, "备份校验和不匹配，文件可能被改动"); return;
+        }
+        if(getSeason(o.id) && !b.overwrite){ err(res, "考试季 "+o.id+" 已存在；如确认覆盖请勾选覆盖选项"); return; }
+        writeJSON(seasonFile(o.id), o);
+        if(b.setCurrent) writeJSON(IDX, {current:o.id});
+        var sc = cur();
+        devlog.logEvent(sc, "", "admin_restore", reqCtx(req, ip, b), "从加密备份恢复考试季 "+o.id);
+        putSeason(sc);
+        json(res, {ok:true, seasonId:o.id, students:(o.students||[]).length,
+          records:Object.keys(o.records||{}).length, exportedAt:r.at, seasons:seasonList()});
+      }catch(e){ err(res, e.message); }
     });
     return;
   }
@@ -427,11 +517,13 @@ var server = http.createServer(function(req, res){
       classes:sc.classes, subjects:sc.subjects, notices:sc.notices,
       srcNote:sc.srcNote, paperNote:sc.paperNote,
       students:sc.students, overrides:sc.overrides, records:sc.records,
-      tickets:sc.tickets, alerts:sc.alerts||[], logs:sc.logs||[], seasons:seasonList()});
+      tickets:sc.tickets, alerts:sc.alerts||[], logs:sc.logs||[],
+      secondFactor:sc.secondFactor||"off", privacyNote:sc.privacyNote||DEFAULT_PRIVACY_NOTE,
+      privacyRequired:sc.privacyRequired!==false, seasons:seasonList()});
     return;
   }
   if(u === "/api/admin/save" && req.method === "POST"){
-    body(req, function(b){
+    body(req, res, function(b){
       if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
       var s2 = cur();
       if(b.records){ s2.records = b.records; }
@@ -446,7 +538,7 @@ var server = http.createServer(function(req, res){
   }
   /* 考试季管理与名单导入 */
   if(u === "/api/admin/season" && req.method === "POST"){
-    body(req, function(b){
+    body(req, res, function(b){
       if(!checkToken(tokenOf(req, b), ip)){ err(res, "未登录或登录已过期"); return; }
       var act = b.action;
       if(act === "list"){ json(res, {ok:true, seasons:seasonList(), current:curId()}); return; }
@@ -482,8 +574,13 @@ var server = http.createServer(function(req, res){
         if(b.end) s4.window.end = b.end;
         if(b.classes) s4.classes = b.classes;
         if(b.notices) s4.notices = b.notices;
+        if(b.secondFactor !== undefined) s4.secondFactor = (b.secondFactor === "sid4" ? "sid4" : "off");
+        if(b.privacyNote !== undefined) s4.privacyNote = String(b.privacyNote).slice(0, 1500);
+        if(b.privacyRequired !== undefined) s4.privacyRequired = !!b.privacyRequired;
+        devlog.logEvent(s4, "", "admin_config", reqCtx(req, ip, b), "修改考试季配置");
         putSeason(s4);
-        json(res, {ok:true, winText:winText(s4.window)});
+        json(res, {ok:true, winText:winText(s4.window), secondFactor:s4.secondFactor,
+          privacyRequired:s4.privacyRequired});
         return;
       }
       if(act === "roster"){
@@ -507,6 +604,15 @@ var server = http.createServer(function(req, res){
   }
 
   err(res, "未知接口 "+u);
+}
+
+/* 单个请求出现异常时返回明确错误，不让服务进程退出（例如数据目录被意外移走） */
+var server = http.createServer(function(req, res){
+  try{ handle(req, res); }
+  catch(e){
+    console.error("[请求异常] " + (e && e.stack || e));
+    try{ err(res, "服务内部错误，请联系教务"); }catch(_){}
+  }
 });
 
 server.listen(PORT, "0.0.0.0", function(){
@@ -519,6 +625,7 @@ server.listen(PORT, "0.0.0.0", function(){
   if(store.encrypted) console.log(" 密钥来源：" + store.keySource + "  <- 请备份，切勿上传仓库");
   if(MIGRATED) console.log(" 已加密迁移历史明文文件：" + MIGRATED + " 个");
   console.log(" 输入时间线：服务端时间 + 设备识别已启用（每季最多 " + devlog.LOG_MAX + " 条）");
+  console.log(" 数据备份：教务后台可导出/恢复口令加密备份（不依赖 .key）");
   if(process.env.TRUST_PROXY === "1") console.log(" 已启用 TRUST_PROXY：使用 X-Forwarded-For 取客户端 IP");
   console.log("------------------------------------------");
 });

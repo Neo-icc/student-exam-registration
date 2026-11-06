@@ -84,14 +84,17 @@ function parseUA(raw){
 /* 客户端上报的信息：单独存放，明确标注可伪造 */
 function sanitizeHint(h){
   if(!h || typeof h !== "object") return null;
-  var out = {}, keys = ["ua","platform","screen","dpr","model","mobile","vendor"];
+  /* UA-CH 高熵值同属客户端上报，可伪造；单独列字段、CSV 中明确标注 */
+  var out = {}, keys = ["ua","platform","screen","dpr","model","mobile","vendor",
+    "uaModel","uaPlatform","uaPlatformVersion","uaArch","uaBitness","uaFullVersion"];
   keys.forEach(function(k){ if(h[k] !== undefined) out[k] = String(h[k]).slice(0, 150); });
   return Object.keys(out).length ? out : null;
 }
 
 function deviceLabel(d){
   if(!d) return "未知设备";
-  return [d.type, d.brand, d.model, d.os].filter(Boolean).join(" · ") || "未知设备";
+  /* 带上内嵌 App（如微信），便于区分同一机型在浏览器/微信内打开的不同终端场景 */
+  return [d.type, d.brand, d.model, d.os, d.app].filter(Boolean).join(" · ") || "未知设备";
 }
 
 /* 写入一条输入事件。ctx = {ip, device, clientHint} */

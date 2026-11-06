@@ -181,12 +181,14 @@ var NOTICES = [
 var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
 
 /* ================= 状态 ================= */
-function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
+function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, sid4:"", privacyOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
 var S = freshState();
 var LSK = "reg_records_v2", LSU = "reg_current_v2", LSM = "reg_master_v3", LST = "reg_tickets_v3", LSLOG = "reg_logs_v1";
 var LOG_ACT = {verify_ok:"验证通过",verify_fail:"验证失败",verify_nomatch:"姓名未匹配",submit:"首次提交",
   resubmit:"重新提交",input:"输入/同步",ticket_confirm:"复核已更正档案",admin_save:"教务保存",
-  push_denied:"越权写入被拒",push_closed:"窗口关闭后写入被拒",push_blocked:"工单未结被拒"};
+  push_denied:"越权写入被拒",push_closed:"窗口关闭后写入被拒",push_blocked:"工单未结被拒",
+  privacy_consent:"同意信息告知",privacy_denied:"未同意信息告知",admin_backup:"导出加密备份",
+  admin_restore:"恢复加密备份",admin_config:"修改考试季配置"};
 function logs(){ try{return JSON.parse(localStorage.getItem(LSLOG)||"[]")}catch(e){return []} }
 function load(){try{return JSON.parse(localStorage.getItem(LSK)||"{}")}catch(e){return {}}}
 function save(r){localStorage.setItem(LSK,JSON.stringify(r)); syncLater();}
@@ -212,6 +214,20 @@ var PAPER_NOTE = "本人已在线上核对并确认本人基本信息（姓名�
    离线（直接双击打开 file://）：自动退回单机演示模式，逻辑不变。 */
 var API_ON = false, ADMIN_TOKEN = "", SYNC_LOCK = false, SERVER_SEASON = "";
 var SEASON_LIST = [];
+/* 由 /api/boot 下发：第二验证因子与个人信息处理告知（离线时走内置默认值） */
+var SECOND_FACTOR = "off", PRIVACY_REQUIRED = true;
+var PRIVACY_NOTE = "为完成本次考试报名，本系统需处理你的个人信息（姓名、性别、出生日期、报考科目），并记录访问时间、IP 地址及终端设备型号用于身份核验与流程留痕。上述信息仅用于本次报考及学校教务管理，按学校规定期限留存，不向无关第三方提供。继续操作即表示你已阅读并同意上述处理；如不同意请联系教务线下办理。";
+/* UA-CH 高熵值：页面加载即异步取，取到后并入后续所有上报。属客户端上报，明确标注可伪造 */
+var UA_CH = null;
+(function(){
+  try{
+    var d = navigator.userAgentData;
+    if(d && d.getHighEntropyValues){
+      d.getHighEntropyValues(["model","platform","platformVersion","architecture","bitness","fullVersionList","wow64"])
+        .then(function(v){ UA_CH = v || null; }).catch(function(){});
+    }
+  }catch(e){}
+})();
 function authHeaders(base){ var x = base||{}; if(ADMIN_TOKEN) x["X-Admin-Token"] = ADMIN_TOKEN; return x; }
 function apiGet(p){ return fetch(p,{cache:"no-store",headers:authHeaders()}).then(function(r){return r.json()}) }
 function apiPost(p,o){ return fetch(p,{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify(o||{}),cache:"no-store"}).then(function(r){return r.json()}) }
@@ -219,9 +235,18 @@ function apiPost(p,o){ return fetch(p,{method:"POST",headers:authHeaders({"Conte
 function deviceHint(){
   try{
     var d = navigator.userAgentData || {};
-    return {ua:String(navigator.userAgent||""), platform:String(navigator.platform||""),
+    var out = {ua:String(navigator.userAgent||""), platform:String(navigator.platform||""),
       screen:(screen.width||0)+"x"+(screen.height||0), dpr:String(window.devicePixelRatio||""),
       model:String(d.model||""), mobile:String(d.mobile===undefined?"":d.mobile), vendor:String(d.vendor||"")};
+    if(UA_CH){
+      out.uaModel = String(UA_CH.model||"");
+      out.uaPlatform = String(UA_CH.platform||"");
+      out.uaPlatformVersion = String(UA_CH.platformVersion||"");
+      out.uaArch = String(UA_CH.architecture||"");
+      out.uaBitness = String(UA_CH.bitness||"");
+      out.uaFullVersion = (UA_CH.fullVersionList||[]).map(function(x){ return x.brand+" "+x.version; }).join("; ").slice(0,150);
+    }
+    return out;
   }catch(e){ return {ua:""}; }
 }
 function syncTip(txt, bad){
@@ -236,6 +261,9 @@ function applyBoot(b){
   if(b.paperNote) PAPER_NOTE = b.paperNote;
   if(b.window){ WINDOW = b.window; }
   if(b.winText) WIN_TEXT = b.winText;
+  SECOND_FACTOR = b.secondFactor || "off";
+  PRIVACY_REQUIRED = b.privacyRequired !== false;
+  if(b.privacyNote) PRIVACY_NOTE = b.privacyNote;
   var t = document.getElementById("hdTitle"), s = document.getElementById("hdsub"), bn = document.getElementById("hdBanner");
   if(t) t.textContent = (b.name||"学生报考") + " · 报考信息确认";
   if(s) s.textContent = "填报时间：" + (b.winText||"") + "　考试季编号：" + (b.seasonId||"");
@@ -321,8 +349,9 @@ function adminRefresh(){
     applyAdminState(st); return true;
   });
 }
-function download(name, text){
-  var blob = new Blob(["\ufeff"+text], {type:"text/csv;charset=utf-8"});
+function download(name, text, noBom){
+  var blob = new Blob([(noBom ? "" : "\ufeff")+text],
+    {type: noBom ? "text/plain;charset=utf-8" : "text/csv;charset=utf-8"});
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = name; a.click();
 }
@@ -349,11 +378,12 @@ function reviewCsvLines(){
   return lines;
 }
 function logCsvLines(){
-  var L = ["时间(服务器),学号,班级,姓名,动作,IP,参考来源IP(可伪造),设备类型,品牌,型号,操作系统,浏览器,客户端屏幕,客户端机型,备注"];
+  var L = ["时间(服务器),学号,班级,姓名,动作,IP,参考来源IP(可伪造),设备类型,品牌,型号,操作系统,浏览器,客户端屏幕,客户端机型,UA-CH机型(可伪造),UA-CH平台版本(可伪造),备注"];
   logs().forEach(function(g){
     var st = stu(g.sid)||{}, d = g.device||{}, ch = g.clientHint||{};
     L.push([g.at,g.sid,st.cls||"",st.cn||"",LOG_ACT[g.action]||g.action,g.ip||"",g.fwd||"",
-      d.type||"",d.brand||"",d.model||"",d.os||"",d.browser||"",ch.screen||"",ch.model||"",g.detail||""]
+      d.type||"",d.brand||"",d.model||"",d.os||"",d.browser||"",ch.screen||"",ch.model||"",
+      ch.uaModel||"",ch.uaPlatformVersion||"",g.detail||""]
       .map(function(x){ return '"'+String(x==null?"":x).replace(/"/g,'""')+'"'; }).join(","));
   });
   return L;
@@ -486,6 +516,15 @@ function enterHTML(){
   h += '<label class="f">出生日期（用于身份验证）</label>';
   h += '<input type="text" id="inpDob" placeholder="例：2009-03-21" autocomplete="off" value="'+esc(S.dobTry)+'">';
   h += '<p class="hint" style="margin:-4px 0 10px">请填写与<b>身份证</b>一致的出生日期；不确定时可查看本人身份证。</p>';
+  if(SECOND_FACTOR === "sid4"){
+    h += '<label class="f">学号后四位（第二验证因子）</label>';
+    h += '<input type="text" id="inpSid4" inputmode="numeric" maxlength="4" placeholder="例：0001" autocomplete="off" value="'+esc(S.sid4||"")+'">';
+    h += '<p class="hint" style="margin:-4px 0 10px">本考试季启用双因子验证，需<b>同时</b>通过出生日期与学号后四位。</p>';
+  }
+  if(PRIVACY_REQUIRED){
+    h += '<div class="lockbox" style="margin:14px 0 10px"><b>个人信息处理告知</b><div style="margin-top:6px">'+PRIVACY_NOTE+'</div></div>';
+    h += '<div class="agree'+(S.privacyOk?" on":"")+'" id="pvOk"><input type="checkbox" id="pvOkCb"'+(S.privacyOk?" checked":"")+'><div>我已阅读并同意上述个人信息处理告知</div></div>';
+  }
   var f0 = failInfo();
   if(f0.until && f0.until > Date.now())
     h += '<div class="err">本设备验证失败次数过多，已暂时锁定至 '+esc(fmtTime(new Date(f0.until).toISOString()))+'。请稍后重试，或携带证件到教务线下核实。</div>';
@@ -500,6 +539,15 @@ function bindEnter(){
   $("selCls").onchange = function(){ S.cls=this.value; S.nameQ=""; S.sid=""; S.vrf=false; S.dobTry=""; S.nameOk=false; saveCur(S); render(); var n=$("inpName"); if(n) n.focus(); };
   $("inpName").oninput = function(){ S.nameQ=this.value; S.sid=""; S.nameOk=false; saveCur(S); };
   $("inpDob").oninput = function(){ S.dobTry=this.value; saveCur(S); };
+  var s4el = $("inpSid4");
+  if(s4el) s4el.oninput = function(){ S.sid4=this.value; saveCur(S); };
+  var pv = $("pvOk");
+  if(pv) pv.onclick = function(){
+    S.privacyOk = !S.privacyOk; $("pvOkCb").checked = S.privacyOk;
+    pv.classList.toggle("on", S.privacyOk); saveCur(S);
+  };
+  var pvc = $("pvOkCb");
+  if(pvc) pvc.onclick = function(e){ e.stopPropagation(); };
   $("btnVrf").onclick = doVerify;
 }
 /* 姓名已匹配、出生日期不匹配时的排错区：给出打码线索，由本人确认后再建纠错工单 */
@@ -570,8 +618,13 @@ function doVerifyLocal(){
   S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify();
 }
 /* 在线验证：姓名与出生日期都送到服务端比对，学生名单不下发到浏览器 */
-function nameCheckMasked(mk, nd){
-  var h = '<div class="err">姓名与出生日期不匹配（你填写的是 '+esc(nd)+'）。</div>';
+function nameCheckMasked(mk, nd, ex){
+  var h = '<div class="err">'+(ex && ex.secondFactor
+    ? '验证信息不匹配（你填写的出生日期是 '+esc(nd)+'，还需核对学号后四位）'
+    : '姓名与出生日期不匹配（你填写的是 '+esc(nd)+'）')+'。</div>';
+  if(ex && ex.secondFactor) h += '<p class="hint">本季启用双因子验证，请同时核对<b>出生日期</b>与<b>学号后四位</b>。</p>';
+  if(ex && ex.locked) h += '<div class="err">验证失败次数已达上限，本设备已暂时锁定至 '+esc(fmtTime(new Date(ex.until||0).toISOString()))+'。请稍后重试，或携带证件到教务线下核实。</div>';
+  else if(ex && ex.fails) h += '<p class="hint">本设备已失败 '+ex.fails+' 次，还可尝试 '+Math.max(0, FAIL_MAX-ex.fails)+' 次；超限将暂时锁定。</p>';
   h += '<div class="lockbox"><b>请先核对姓名是否输错</b>系统匹配到的是：'+esc(mk.cn)+' · '+esc(mk.cls)+' · '+esc(mk.g)
     + '。<br>若这不是你，请返回上方修改姓名；若确是你，说明学籍记录的出生日期可能有问题，可提交教务核实。</div>';
   h += '<div class="agree'+(S.nameOk?" on":"")+'" id="nmOk"><input type="checkbox" id="nmOkCb"'+(S.nameOk?" checked":"")+'><div>我确认姓名与班级输入无误，是学籍记录的出生日期需要核实</div></div>';
@@ -587,11 +640,22 @@ function doVerify(){
   if(!q){ $("msg").innerHTML = '<div class="err">请输入完整姓名。</div>'; return; }
   var dv = $("inpDob"), v = (dv && dv.value||"").trim();
   if(!v){ $("msg").innerHTML = '<div class="err">请输入出生日期（例：2009-03-21）。</div>'; return; }
-  S.nameQ = q; S.dobTry = v; saveCur(S);
+  var s4el = $("inpSid4"), sid4 = s4el ? (s4el.value||"").trim() : "";
+  if(SECOND_FACTOR === "sid4" && !/^\d{4}$/.test(sid4)){
+    $("msg").innerHTML = '<div class="err">请填写 4 位数字的学号后四位。</div>'; return;
+  }
+  if(PRIVACY_REQUIRED && !S.privacyOk){
+    $("msg").innerHTML = '<div class="err">请先阅读并勾选同意「个人信息处理告知」，再进行身份验证。</div>'; return;
+  }
+  S.nameQ = q; S.dobTry = v; S.sid4 = sid4; saveCur(S);
   var btn = $("btnVrf"); if(btn){ btn.disabled = true; btn.textContent = "正在验证…"; }
-  apiPost("/api/verify",{cls:S.cls, name:q, dob:v, nameOk:!!S.nameOk, deviceHint:deviceHint()}).then(function(res){
+  apiPost("/api/verify",{cls:S.cls, name:q, dob:v, nameOk:!!S.nameOk,
+    sid4:sid4, privacyOk:!!S.privacyOk, deviceHint:deviceHint()}).then(function(res){
     if(btn){ btn.disabled = false; btn.textContent = "验证并查看我的信息"; }
     if(!res || !res.code){ $("msg").innerHTML = '<div class="err">服务器未响应，请稍后重试。</div>'; return; }
+    if(res.code === "privacy"){
+      $("msg").innerHTML = '<div class="err">请先阅读并勾选同意「个人信息处理告知」，再进行身份验证。</div>'; return;
+    }
     if(res.code === "nomatch"){
       $("msg").innerHTML = '<div class="err">未匹配到记录。请核对班级与姓名，并确认已输入<b>完整姓名</b>；仍无法匹配请联系教务核实名单。</div>'; return;
     }
@@ -608,13 +672,16 @@ function doVerify(){
     }
     if(res.code === "nameCheck"){
       S.sid = res.sid; S.nameOk = false; saveCur(S);
-      $("msg").innerHTML = nameCheckMasked(res.masked, res.tryDob); bindNameCheck();
+      if(res.fails) saveFail({n:res.fails, until:res.until||0});
+      $("msg").innerHTML = nameCheckMasked(res.masked, res.tryDob, res); bindNameCheck();
       return;
     }
     if(res.code === "ticket"){
       /* 出生日期未通过：只登记等待教务核实，绝不进入本人档案、也不清零失败计数 */
       S.vrf = false; S.nameOk = false; saveCur(S);
-      $("msg").innerHTML = '<div class="lockbox"><b>已提交教务核实</b>你填写的出生日期与学籍记录不一致，教务核对后会联系你。请核对身份证件后重新验证，或携带证件到教务线下处理。</div>';
+      if(res.fails) saveFail({n:res.fails, until:res.until||0});
+      var lk = res.locked ? '<div class="err">验证失败次数已达上限，本设备已暂时锁定，请稍后重试或联系教务线下核实。</div>' : '';
+      $("msg").innerHTML = lk + '<div class="lockbox"><b>已提交教务核实</b>你填写的出生日期与学籍记录不一致，教务核对后会联系你。请核对身份证件后重新验证，或携带证件到教务线下处理。</div>';
       return;
     }
     SYNC_LOCK = true;
@@ -960,6 +1027,24 @@ function adminHTML(){
     h += '<p class="hint">导入名单只允许在本季尚无提交记录时整体替换；已有提交后如需换名单，请新建考试季。</p></div>';
   }
   if(API_ON){
+    h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">安全与合规设置</b>';
+    h += '<p class="hint" style="margin:6px 0 10px">以下设置只对<b>当前考试季</b>生效，保存后学生端刷新页面即生效。</p>';
+    h += '<p class="hint"><label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="cfg2fa" style="width:auto;margin:0"'+(SECOND_FACTOR==="sid4"?" checked":"")+'> 启用第二验证因子（出生日期 + <b>学号后四位</b>）</label></p>';
+    h += '<p class="hint" style="margin:-2px 0 10px">出生日期只有 8 位数字，属弱凭据；正式报考建议开启双因子。</p>';
+    h += '<p class="hint"><label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="cfgPvReq" style="width:auto;margin:0"'+(PRIVACY_REQUIRED?" checked":"")+'> 学生验证前必须先阅读并同意个人信息处理告知</label></p>';
+    h += '<label class="f">个人信息处理告知文本</label><textarea id="cfgPvNote" style="min-height:110px">'+esc(PRIVACY_NOTE)+'</textarea>';
+    h += '<p><button class="mini act" id="cfgSave">保存安全与合规设置</button></p></div>';
+    h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">数据备份与恢复</b>';
+    h += '<p class="hint" style="margin:6px 0 10px">导出的是<b>密文</b>备份，用下方备份口令经 scrypt 派生密钥加密，<b>不依赖服务器 data/.key</b>；云端容器重建、密钥更换后也能恢复到任意新环境。口令不落盘、不写日志，忘记即无法恢复。</p>';
+    h += '<p><input type="password" id="bkPass" class="mini" placeholder="备份口令（至少 8 位）" style="width:210px;padding:6px 8px;font-size:13px"> <button class="mini act" id="bkExport">导出加密备份</button></p>';
+    h += '<p class="hint" style="margin:12px 0 4px">从备份恢复（.bak 文件）：</p>';
+    h += '<p><input type="file" id="bkFile" class="mini" style="width:270px;font-size:12px"> <input type="password" id="bkPass2" class="mini" placeholder="备份口令" style="width:160px;padding:6px 8px;font-size:13px"></p>';
+    h += '<p class="hint"><label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><input type="checkbox" id="bkOverwrite" style="width:auto;margin:0"> 覆盖同名考试季</label>'
+      +  '<label style="display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="bkCurrent" checked style="width:auto;margin:0"> 恢复后设为当前季</label></p>';
+    h += '<p><button class="mini" id="bkRestore">从加密备份恢复</button></p>';
+    h += '<p class="hint">当前季时间线已用 '+logs().length+' / 5000 条；接近上限前请导出 CSV 归档。</p></div>';
+  }
+  if(API_ON){
     var LG = logs().slice().reverse();
     h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">输入时间与终端设备记录</b>';
     h += '<p class="hint" style="margin:6px 0 10px">每次验证、输入同步与提交均由服务端按<b>服务器时钟</b>记录，并从 User-Agent 解析设备。共 '+LG.length+' 条（每季上限 5000）。<b>客户端上报项可伪造，仅作参考。</b>反向代理下 IP 可能统一显示为网关地址，区分信息见导出 CSV 的「参考来源IP(可伪造)」列。</p>';
@@ -1136,6 +1221,49 @@ function bindAdmin(){
   $("btnCsv").onclick = function(){ download((SERVER_SEASON||"报考")+"-报考汇总.csv", summaryCsvLines().join("\n")); };
   var bl = $("btnLogCsv");
   if(bl) bl.onclick = function(){ download((SERVER_SEASON||"报考")+"-输入时间与设备.csv", logCsvLines().join("\n")); };
+  /* ---- 安全与合规设置 ---- */
+  var cfgSave = $("cfgSave");
+  if(cfgSave) cfgSave.onclick = function(){
+    apiPost("/api/admin/season",{token:ADMIN_TOKEN, action:"config",
+      secondFactor: $("cfg2fa").checked ? "sid4" : "off",
+      privacyRequired: $("cfgPvReq").checked,
+      privacyNote: $("cfgPvNote").value}).then(function(r){
+      if(!r || !r.ok){ alert((r&&r.error)||"保存失败"); return; }
+      adminRefresh().then(function(){ render(); alert("安全与合规设置已保存，学生端刷新后生效。"); });
+    });
+  };
+  /* ---- 加密备份 / 恢复 ---- */
+  var bkExport = $("bkExport");
+  if(bkExport) bkExport.onclick = function(){
+    var p = $("bkPass").value||"";
+    if(p.length < 8){ alert("备份口令至少 8 位"); return; }
+    apiPost("/api/admin/backup",{token:ADMIN_TOKEN, backupPass:p}).then(function(r){
+      if(!r || !r.ok){ alert((r&&r.error)||"导出失败"); return; }
+      download((r.seasonId||"报考")+"-加密备份-"+String(r.exportedAt||"").slice(0,10)+".bak", r.text, true);
+      $("bkPass").value = "";
+      alert("已导出加密备份文件。\n请连同备份口令离线保管；系统不会保存该口令。");
+    });
+  };
+  var bkRestore = $("bkRestore");
+  if(bkRestore) bkRestore.onclick = function(){
+    var fi = $("bkFile"), f = fi && fi.files && fi.files[0];
+    var p = $("bkPass2").value||"";
+    if(!f){ alert("请选择 .bak 加密备份文件"); return; }
+    if(!p){ alert("请输入备份口令"); return; }
+    if(!confirm("将从备份写入考试季数据，确定继续？")) return;
+    var rd = new FileReader();
+    rd.onload = function(){
+      var txt = String(rd.result||"").replace(/^\uFEFF/,"").trim();
+      apiPost("/api/admin/restore",{token:ADMIN_TOKEN, text:txt, backupPass:p,
+        overwrite: $("bkOverwrite").checked, setCurrent: $("bkCurrent").checked}).then(function(r){
+        if(!r || !r.ok){ alert((r&&r.error)||"恢复失败"); return; }
+        $("bkPass2").value = "";
+        adminRefresh().then(function(){ render();
+          alert("已恢复考试季 "+r.seasonId+"："+r.students+" 人 / "+r.records+" 条提交。"); });
+      });
+    };
+    rd.readAsText(f);
+  };
   /* ---- 考试季管理 ---- */
   var seaSwitch = $("seaSwitch");
   if(seaSwitch) seaSwitch.onclick = function(){

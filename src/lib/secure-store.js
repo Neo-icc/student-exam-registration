@@ -73,7 +73,16 @@ module.exports = function createStore(dataDir, opts){
   }
   function writeJSON(p, o){
     mkdirp(path.dirname(p));
-    fs.writeFileSync(p, encrypt(JSON.stringify(o, null, 2)), {encoding:"utf8", mode:0o600});
+    /* 原子替换：先写临时文件再 rename，避免写入中断留下半截密文；
+       同名临时文件带进程号与随机数，多进程并发时也不会互相踩踏。 */
+    var tmp = p + ".tmp-" + process.pid + "-" + crypto.randomBytes(4).toString("hex");
+    try{
+      fs.writeFileSync(tmp, encrypt(JSON.stringify(o, null, 2)), {encoding:"utf8", mode:0o600});
+      fs.renameSync(tmp, p);
+    }catch(e){
+      try{ fs.unlinkSync(tmp); }catch(_){}
+      throw e;
+    }
   }
   function isPlain(p){
     try{ return fs.readFileSync(p, "utf8").slice(0, PREFIX.length) !== PREFIX; }
