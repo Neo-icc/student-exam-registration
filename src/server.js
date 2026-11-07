@@ -180,15 +180,23 @@ function pushAlert(s, sid, ok, ip){
 var MIME = {".html":"text/html; charset=utf-8", ".js":"text/javascript; charset=utf-8", ".css":"text/css; charset=utf-8",
   ".json":"application/json; charset=utf-8", ".svg":"image/svg+xml", ".ico":"image/x-icon", ".png":"image/png", ".md":"text/markdown; charset=utf-8"};
 
+var CSP_BASE = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'";
+/* 钉钉 PC 工作台是把 H5 首页放进 iframe 里打开的：X-Frame-Options: DENY 或
+   frame-ancestors 'none' 会让 PC 端只显示空白页。仅对钉钉客户端请求放宽嵌套策略，
+   普通浏览器仍保持 DENY 防点击劫持。若客户端 UA 无法识别，可显式设置
+   EXAM_FRAME_ANY=1 作为兼容开关（会放宽所有来源，仅在受控内网使用）。 */
+var FRAME_ANY = process.env.EXAM_FRAME_ANY === "1";
 function send(res, code, body, type){
-  res.writeHead(code, {
+  var relax = FRAME_ANY || !!res._examDingTalk;
+  var h = {
     "Content-Type": type||"application/json; charset=utf-8",
     "Cache-Control":"no-store",
     "X-Content-Type-Options":"nosniff",
-    "X-Frame-Options":"DENY",
     "Referrer-Policy":"no-referrer",
-    "Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'"
-  });
+    "Content-Security-Policy": CSP_BASE + (relax ? "; frame-ancestors *" : "; frame-ancestors 'none'")
+  };
+  if(!relax) h["X-Frame-Options"] = "DENY";
+  res.writeHead(code, h);
   res.end(body);
 }
 function json(res, obj){ send(res, 200, JSON.stringify(obj)); }
@@ -271,6 +279,8 @@ function sanitizeRecord(st, sid, bRec, oldR, ip, ctx){
 function handle(req, res){
   var u = req.url.split("?")[0];
   var ip = clientIP(req);
+  /* 按请求 UA 判定是否来自钉钉客户端，用于决定响应是否允许被工作台 iframe 嵌套 */
+  res._examDingTalk = /DingTalk|AliApp\(DingTalk|com\.laiwang\.DingTalk/i.test(String(req.headers["user-agent"]||""));
 
   /* 静态资源 */
   if(u.indexOf("/api/") !== 0){

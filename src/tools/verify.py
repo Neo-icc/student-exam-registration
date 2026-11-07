@@ -380,9 +380,41 @@ def main():
 
     # ===== J 语法与结构 =====
     section("J 结构完整性")
+    server_src = open(os.path.join(SRC, "server.js"), encoding="utf-8").read()
     check("J1 备份模块与服务端均已接入",
-          "require(\"./lib/backup\")" in open(os.path.join(SRC, "server.js"), encoding="utf-8").read()
+          "require(\"./lib/backup\")" in server_src
           and os.path.exists(os.path.join(SRC, "lib", "backup.js")))
+    check("J2 钉钉工作台 iframe 兼容开关已接入服务端",
+          "_examDingTalk" in server_src and "EXAM_FRAME_ANY" in server_src
+          and "frame-ancestors *" in server_src)
+
+    # ===== K 钉钉工作台内嵌 =====
+    # 钉钉 PC 工作台用 iframe 打开 H5 首页；普通浏览器必须继续禁止嵌套防点击劫持。
+    section("K 钉钉工作台内嵌兼容")
+    def hdr(hs, key):
+        low = key.lower()
+        for k, v in hs.items():
+            if k.lower() == low:
+                return v
+        return ""
+    _, h_plain, _ = get("/", {"User-Agent": UA_IPHONE})
+    check("K1 普通浏览器仍禁止被 iframe 嵌套",
+          hdr(h_plain, "X-Frame-Options") == "DENY"
+          and "frame-ancestors 'none'" in hdr(h_plain, "Content-Security-Policy"),
+          hdr(h_plain, "X-Frame-Options"))
+    _, h_dt, _ = get("/", {"User-Agent": UA_DINGTALK})
+    check("K2 钉钉客户端首页允许工作台 iframe 嵌套",
+          hdr(h_dt, "X-Frame-Options") != "DENY"
+          and "frame-ancestors *" in hdr(h_dt, "Content-Security-Policy")
+          and "frame-ancestors 'none'" not in hdr(h_dt, "Content-Security-Policy"),
+          hdr(h_dt, "X-Frame-Options"))
+    _, h_wx, _ = get("/", {"User-Agent": UA_HUAWEI})
+    check("K3 非钉钉 UA 不能放宽嵌套策略",
+          hdr(h_wx, "X-Frame-Options") == "DENY"
+          and "frame-ancestors 'none'" in hdr(h_wx, "Content-Security-Policy"))
+    _, h_api, _ = get("/api/boot", {"User-Agent": UA_DINGTALK})
+    check("K4 钉钉端接口响应同样不带 DENY（避免控制台报错）",
+          hdr(h_api, "X-Frame-Options") != "DENY")
 
     print("\n===== 汇总：PASS %d / FAIL %d =====" % (len(PASS), len(FAIL)))
     if FAIL:
