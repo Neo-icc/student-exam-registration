@@ -96,6 +96,9 @@ UA_IPHONE = ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit
 UA_HUAWEI = ("Mozilla/5.0 (Linux; Android 12; HUAWEI P40 Pro Build/HUAWEIP40Pro; wv) "
              "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/108.0.0.0 "
              "Mobile Safari/537.36 MicroMessenger/8.0.40")
+UA_DINGTALK = ("Mozilla/5.0 (Linux; Android 13; HUAWEI P40 Pro Build/HUAWEIP40Pro; wv) "
+               "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/112.0.0.0 "
+               "Mobile Safari/537.36 AliApp(DingTalk/7.6.5) com.laiwang.DingTalk")
 
 HINT = {"ua": UA_HUAWEI, "platform": "Linux armv8l", "screen": "1200x2640", "dpr": "3",
         "model": "HUAWEI P40 Pro", "mobile": "true", "vendor": "HUAWEI",
@@ -199,6 +202,13 @@ def main():
           all(a in acts for a in ["privacy_denied", "privacy_consent", "verify_ok", "verify_fail"]), acts[-12:])
     last = [x for x in state1.get("logs", []) if x.get("action") == "verify_ok"][-1]
     check("D9 时间线使用服务端权威时间并含设备", bool(last.get("at")) and bool(last.get("device")), last.get("at"))
+    r_dt = verify("IG1", "张思远", real_dob, ua=UA_DINGTALK)
+    _, _, state_dt = get("/api/admin/state", admin())
+    last_dt = [x for x in state_dt.get("logs", []) if x.get("action") == "verify_ok"][-1]
+    app_dt = ((last_dt.get("device") or {}).get("app") or "")
+    check("D10 钉钉工作台内置浏览器可验证且时间线识别钉钉渠道",
+          r_dt.get("code") == "ok" and "钉钉" in app_dt,
+          {"code": r_dt.get("code"), "app": app_dt})
 
     # ===== E 双因子 =====
     section("E 第二验证因子（出生日期 + 学号后四位）")

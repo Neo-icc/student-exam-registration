@@ -10,9 +10,14 @@ function parseUA(raw){
 
   var tablet = /iPad|Tablet|Pad\b/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
 
-  /* 内嵌 App */
+  /* 内嵌 App：钉钉工作台 / 微信 / 企业微信 / QQ浏览器。
+     钉钉 UA 常见形式：AliApp(DingTalk/7.6.5) com.laiwang.DingTalk，或仅 DingTalk/x.y.z。
+     从钉钉工作台 H5 应用进入时，这一项是区分访问渠道的关键留痕。 */
+  var dt = ua.match(/AliApp\(DingTalk\/([\d.]+)\)/i) || ua.match(/DingTalk\/([\d.]+)/i);
   var wx = ua.match(/MicroMessenger\/([\d.]+)/i);
-  if(wx) r.app = "微信 " + wx[1];
+  if(dt) r.app = "钉钉 " + dt[1];
+  else if(/DingTalk|com\.laiwang\.DingTalk/i.test(ua)) r.app = "钉钉";
+  else if(wx) r.app = "微信 " + wx[1];
   else if(/wxwork/i.test(ua)) r.app = "企业微信";
   else { var qq = ua.match(/MQQBrowser\/([\d.]+)/i); if(qq) r.app = "QQ浏览器 " + qq[1]; }
 
