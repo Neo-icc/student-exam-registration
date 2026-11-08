@@ -225,7 +225,7 @@ function applyBoot(b){
   if(b.window){ WINDOW = b.window; }
   if(b.winText) WIN_TEXT = b.winText;
   var t = document.getElementById("hdTitle"), s = document.getElementById("hdsub"), bn = document.getElementById("hdBanner");
-  if(t) t.textContent = "ICC全球大考报名系统 · " + (b.name||"全球大考报名");
+  if(t) t.textContent = "ICC全球大考报名系统 · 演示版";
   if(s) s.textContent = "填报时间：" + (b.winText||"") + "　考试季编号：" + (b.seasonId||"");
   if(bn) bn.textContent = "本页仅显示通过身份验证后的本人档案。";
 }
