@@ -368,7 +368,7 @@ def main():
     if missing:
         sys.exit("缺少必需列：" + "、".join(missing) + "\n请用 --map 字段=表头名 手动指定，例如 --map dob=出生年月")
     if "en" not in mapping:
-        print("⚠ 未识别到「姓名大写」列：该字段用于考试局报名及成绩证书，导入后将为空。"
+        print("⚠ 未识别到「姓名大写」列：该字段用于全球大考报名及成绩证书，导入后将为空。"
               "请尽快补全或用 --map en=列名 指定。")
     if "id" not in mapping:
         print("· 未识别到学号列，将按行序自动生成 S001、S002 …")

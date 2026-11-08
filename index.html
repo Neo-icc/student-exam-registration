@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>学生报考信息确认 · 公开演示</title>
+<title>ICC全球大考报名系统 · 公开演示</title>
 <meta name="robots" content="noindex,nofollow">
-<meta name="description" content="学生报考信息确认系统流程演示页">
+<meta name="description" content="ICC全球大考报名系统流程演示页">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#F1EFE8;color:#2C2C2A;font-size:15px;line-height:1.6}
@@ -116,7 +116,7 @@ th{background:#F1EFE8;font-weight:500;white-space:nowrap}
     体验账号：班级 <b>IG1</b> ／ 姓名 <b>张思远</b> ／ 出生日期 <b>2009-03-12</b>
   </div>
   <div class="hd">
-    <h1 id="hdTitle">学生报考信息确认 · 演示版</h1>
+    <h1 id="hdTitle">ICC全球大考报名系统 · 演示版</h1>
     <p id="hdsub">正在连接服务器…</p>
   </div>
   <div class="banner" id="hdBanner">正在载入本次报考配置…</div>
@@ -178,11 +178,11 @@ var WIN_TEXT = "2026 年 10 月 25 日 08:00 至 11 月 5 日 18:00";
 var NOTICES = [
   "本申请<b>每人仅可提交一次</b>。提交后本人不能自行修改或重复提交；确需变更的，须由本人向教务提出申请，经教务处理后方为有效。",
   "出生日期是本系统核验本人身份的唯一凭据，请勿告知他人。本页访问已记录，非本人查询将被追查。",
-  "姓名大写拼音、性别、出生日期将用于<b>考试局报名及成绩证书</b>，须逐项核对；如有错误请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
+  "姓名大写拼音、性别、出生日期将用于<b>全球大考报名及成绩证书</b>，须逐项核对；如有错误请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
   "线上签名即确认本人已核阅并确认上述基本信息无误。班级纸质确认表<b>仅确认报考科目与单元</b>，班会期间须逐项核对后本人签名，纸质件留档。",
   "未在规定时间内提交视为自动放弃本次报考；窗口关闭后系统锁定，仅可查看已提交内容，不再受理提交与修改。"
 ];
-var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
+var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于全球大考报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
 
 /* ================= 状态 ================= */
 function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
@@ -227,7 +227,7 @@ function applyBoot(b){
   if(b.window){ WINDOW = b.window; }
   if(b.winText) WIN_TEXT = b.winText;
   var t = document.getElementById("hdTitle"), s = document.getElementById("hdsub"), bn = document.getElementById("hdBanner");
-  if(t) t.textContent = (b.name||"学生报考") + " · 报考信息确认";
+  if(t) t.textContent = "ICC全球大考报名系统 · " + (b.name||"全球大考报名");
   if(s) s.textContent = "填报时间：" + (b.winText||"") + "　考试季编号：" + (b.seasonId||"");
   if(bn) bn.textContent = "请核对本人信息后完成报考。本页仅显示通过身份验证后的本人档案。";
 }
@@ -920,7 +920,7 @@ function adminHTML(){
     h += '</select> <button class="mini act" id="seaSwitch">切换</button> <button class="mini" id="seaRefresh">刷新数据</button></p>';
     h += '<p class="hint" style="margin-top:12px">新建考试季（自动成为当前季，旧季数据完整保留）：</p>';
     h += '<p><input id="seaId" class="mini" placeholder="编号，如 2026-winter" style="width:160px"> '
-      + '<input id="seaName" class="mini" placeholder="名称，如 2026 年冬季 CAIE 考试报名" style="width:250px"></p>';
+      + '<input id="seaName" class="mini" placeholder="名称，如 2026 年冬季 ICC 全球大考报名" style="width:250px"></p>';
     h += '<p><input id="seaStart" class="mini" type="datetime-local"> 至 <input id="seaEnd" class="mini" type="datetime-local">'
       + ' <button class="mini act" id="seaCreate">新建并切换</button></p>';
     h += '<p class="hint">适用班级（英文逗号分隔，留空沿用当前季）：<input id="seaCls" class="mini" style="width:280px" value="'+esc((CLASSES||[]).join(","))+'"></p>';

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""学生报考系统 · 全量回归验证（零第三方依赖，仅用 Python 标准库）
+"""ICC全球大考报名系统 · 全量回归验证（零第三方依赖，仅用 Python 标准库）
 
 用法：
     PORT=8093 node server.js                       # 另开终端，干净 data/ 目录
@@ -306,7 +306,10 @@ def main():
     wrong = api_post("/api/admin/restore", {"text": text, "backupPass": "WrongPass123",
                                                   "overwrite": True, "setCurrent": True})
     check("H4 错误备份口令恢复被拒", wrong.get("ok") is False, str(wrong)[:120])
-    tampered = text[:-6] + ("A" if text[-6] != "A" else "B") + text[-5:]
+    # 篡改密文中段：末尾 base64 量子可能含无效位/填充，改尾部字符偶尔解码后原文不变，
+    # 会让这条断言随机误判；改中段字节必定触发 GCM 认证失败。
+    mid = len(text) // 2
+    tampered = text[:mid] + ("A" if text[mid] != "A" else "B") + text[mid + 1:]
     tam = api_post("/api/admin/restore", {"text": tampered, "backupPass": BPASS,
                                                 "overwrite": True, "setCurrent": True})
     check("H5 备份被篡改恢复被拒", tam.get("ok") is False, str(tam)[:120])
@@ -387,6 +390,14 @@ def main():
     check("J2 钉钉工作台 iframe 兼容开关已接入服务端",
           "_examDingTalk" in server_src and "EXAM_FRAME_ANY" in server_src
           and "frame-ancestors *" in server_src)
+    # 品牌更名后，教务必须能通过 config 改档案来源说明与纸质签署说明（含大考名称）
+    _ = api_post("/api/admin/season", {"action": "config",
+                                       "srcNote": "全球大考报名说明_test", "paperNote": "纸质签署说明_test"})
+    _, _, st_cfg = get("/api/admin/state", admin())
+    check("J3 教务可修改档案来源说明与纸质签署说明",
+          st_cfg.get("srcNote") == "全球大考报名说明_test"
+          and st_cfg.get("paperNote") == "纸质签署说明_test",
+          {"srcNote": st_cfg.get("srcNote"), "paperNote": st_cfg.get("paperNote")})
 
     # ===== K 钉钉工作台内嵌 =====
     # 钉钉 PC 工作台用 iframe 打开 H5 首页；普通浏览器必须继续禁止嵌套防点击劫持。

@@ -1,4 +1,4 @@
-/* 学生报考系统 · 服务端
+/* ICC全球大考报名系统 · 服务端
    零依赖，仅用 Node 内置模块。数据按「考试季」分文件存放，静态数据 AES-256-GCM 加密落盘。
    启动： node server.js    （端口可用环境变量 PORT 覆盖）
    密钥： data/.key（首次启动自动生成，务必备份且不上传）或环境变量 EXAM_DATA_KEY */
@@ -85,11 +85,11 @@ var SEED_STUDENTS = [
 var SEED_NOTICES = [
   "本申请<b>每人仅可提交一次</b>。提交后本人不能自行修改或重复提交；确需变更的，须由本人向教务提出申请，经教务处理后方为有效。",
   "出生日期是本系统核验本人身份的唯一凭据，请勿告知他人。本页访问已记录，非本人查询将被追查。",
-  "姓名大写拼音、性别、出生日期将用于<b>考试局报名及成绩证书</b>，须逐项核对；如有错误请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
+  "姓名大写拼音、性别、出生日期将用于<b>全球大考报名及成绩证书</b>，须逐项核对；如有错误请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
   "线上签名即确认本人已核阅并确认上述基本信息无误。班级纸质确认表<b>仅确认报考科目与单元</b>，班会期间须逐项核对后本人签名，纸质件留档。",
   "未在规定时间内提交视为自动放弃本次报考；窗口关闭后系统锁定，仅可查看已提交内容，不再受理提交与修改。"
 ];
-var SEED_SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于考试局报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
+var SEED_SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于全球大考报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
 var SEED_PAPER_NOTE = "本人已在线上核对并确认本人基本信息（姓名大写拼写、性别、出生日期）无误；本次签字仅确认下列报考科目与单元，请逐项核对后签名。";
 var DEFAULT_PRIVACY_NOTE = "为完成本次考试报名，本系统需处理你的个人信息（姓名、性别、出生日期、报考科目），并记录访问时间、IP 地址及终端设备型号用于身份核验与流程留痕。上述信息仅用于本次报考及学校教务管理，按学校规定期限留存，不向无关第三方提供。继续操作即表示你已阅读并同意上述处理；如不同意请联系教务线下办理。";
 
@@ -127,7 +127,7 @@ function idx(){
 function ensureSeed(){
   var i = idx();
   if(!i){
-    var s = newSeason("2026-summer", "2026 年夏季 CAIE 考试报名", "2026-10-25T08:00", "2026-11-05T18:00",
+    var s = newSeason("2026-summer", "2026 年夏季 ICC 全球大考报名", "2026-10-25T08:00", "2026-11-05T18:00",
       ["IG1","IG2","AS1","AS2","AS3","A21","A22"], SEED_SUBJECTS, SEED_NOTICES.slice(), SEED_STUDENTS.map(function(x){return Object.assign({},x);}));
     writeJSON(path.join(SEASONS, s.id+".json"), s);
     writeJSON(IDX, {current:s.id});
@@ -584,6 +584,9 @@ function handle(req, res){
         if(b.end) s4.window.end = b.end;
         if(b.classes) s4.classes = b.classes;
         if(b.notices) s4.notices = b.notices;
+        /* 档案来源说明与纸质签署说明也允许教务按大考名称修改，最长 1500 字 */
+        if(b.srcNote !== undefined) s4.srcNote = String(b.srcNote).slice(0, 1500);
+        if(b.paperNote !== undefined) s4.paperNote = String(b.paperNote).slice(0, 1500);
         if(b.secondFactor !== undefined) s4.secondFactor = (b.secondFactor === "sid4" ? "sid4" : "off");
         if(b.privacyNote !== undefined) s4.privacyNote = String(b.privacyNote).slice(0, 1500);
         if(b.privacyRequired !== undefined) s4.privacyRequired = !!b.privacyRequired;
@@ -627,7 +630,7 @@ var server = http.createServer(function(req, res){
 
 server.listen(PORT, "0.0.0.0", function(){
   console.log("------------------------------------------");
-  console.log(" 学生报考系统已启动");
+  console.log(" ICC全球大考报名系统已启动");
   console.log(" 本机访问： http://localhost:" + PORT);
   console.log(" 当前考试季：" + curId());
   console.log(" 教务后台口令：node tools/set-password.js <新口令>（默认 exam2026，务必先改）");
