@@ -13,6 +13,7 @@
 import json
 import os
 import random
+import re
 import string
 import sys
 import time
@@ -410,6 +411,29 @@ def main():
           st_cfg.get("srcNote") == "全球大考报名说明_test"
           and st_cfg.get("paperNote") == "纸质签署说明_test",
           {"srcNote": st_cfg.get("srcNote"), "paperNote": st_cfg.get("paperNote")})
+    # 品牌更名必须同时覆盖「存在考试季数据里的可配置文案」：曾出现代码默认文案已改净、
+    # 但线上历史考试季仍存旧系统名与 CAIE 字样，学生验证前实际看到的是旧文案。
+    OLD_BRAND = ["CAIE", "考试局", "学生报考信息确认"]
+    def all_strings(v):
+        if isinstance(v, str): return [v]
+        if isinstance(v, dict): return [s for x in v.values() for s in all_strings(x)]
+        if isinstance(v, list): return [s for x in v for s in all_strings(x)]
+        return []
+    m_srv = re.search(r'var DEFAULT_PRIVACY_NOTE = "([^"]+)"', server_src)
+    m_fe = re.search(r'var PRIVACY_NOTE = "([^"]+)"', html)
+    check("J4 默认个人信息处理告知无旧品牌且前后端一致",
+          bool(m_srv) and bool(m_fe) and m_srv.group(1) == m_fe.group(1)
+          and not any(o in m_srv.group(1) for o in OLD_BRAND),
+          {"srv": bool(m_srv), "fe": bool(m_fe), "equal": bool(m_srv and m_fe and m_srv.group(1) == m_fe.group(1))})
+    _, _, boot_brand = get("/api/boot")
+    bad_brand = [s[:80] for s in all_strings(boot_brand) if any(o in s for o in OLD_BRAND)]
+    check("J5 公开启动接口全部文案无旧品牌字样", not bad_brand, bad_brand)
+    _ = api_post("/api/admin/season", {"action": "config",
+                                       "privacyNote": "ICC全球大考报名系统_test告知"})
+    _, _, boot_pv = get("/api/boot")
+    check("J6 教务可修改个人信息处理告知并下发学生端",
+          boot_pv.get("privacyNote") == "ICC全球大考报名系统_test告知",
+          boot_pv.get("privacyNote"))
 
     # ===== K 钉钉工作台内嵌 =====
     # 钉钉 PC 工作台用 iframe 打开 H5 首页；普通浏览器必须继续禁止嵌套防点击劫持。
