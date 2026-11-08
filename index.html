@@ -117,9 +117,9 @@ th{background:#F1EFE8;font-weight:500;white-space:nowrap}
   </div>
   <div class="hd">
     <h1 id="hdTitle">ICC全球大考报名系统 · 演示版</h1>
-    <p id="hdsub">正在连接服务器…</p>
+    <p id="hdsub">演示考试季：2026 年夏季 ICC 全球大考报名</p>
   </div>
-  <div class="banner" id="hdBanner">正在载入本次报考配置…</div>
+  <div class="banner" id="hdBanner">体验流程：验证身份 → 核对信息 → 选择科目 → 预览签名 → 查看回执。</div>
   <div id="view"></div>
   <div class="dbg noprint">
     演示控制：
@@ -177,12 +177,11 @@ var WINDOW = {start:"2026-10-25T08:00", end:"2026-11-05T18:00"};
 var WIN_TEXT = "2026 年 10 月 25 日 08:00 至 11 月 5 日 18:00";
 var NOTICES = [
   "本申请<b>每人仅可提交一次</b>。提交后本人不能自行修改或重复提交；确需变更的，须由本人向教务提出申请，经教务处理后方为有效。",
-  "出生日期是本系统核验本人身份的唯一凭据，请勿告知他人。本页访问已记录，非本人查询将被追查。",
-  "姓名大写拼音、性别、出生日期将用于<b>全球大考报名及成绩证书</b>，须逐项核对；如有错误请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
-  "线上签名即确认本人已核阅并确认上述基本信息无误。班级纸质确认表<b>仅确认报考科目与单元</b>，班会期间须逐项核对后本人签名，纸质件留档。",
+  "出生日期与学号后四位是核验本人身份的凭据，请勿告知他人。",
+  "如姓名大写拼音、性别、出生日期与身份证件不一致，请勾选「信息有误」写明正确内容，由教务更正后再提交，不要将错就错。",
   "未在规定时间内提交视为自动放弃本次报考；窗口关闭后系统锁定，仅可查看已提交内容，不再受理提交与修改。"
 ];
-var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成，请逐项核对。<b>姓名大写拼音将用于全球大考报名及成绩证书</b>，如与身份证件不一致，须立即提交更正，否则可能影响考试成绩与证书发放。";
+var SRC_NOTE = "以下信息由教务根据<b>入学学籍表</b>生成。<b>姓名大写拼音将用于全球大考报名及成绩证书</b>，如与身份证件不一致可能影响考试与证书发放，请逐项核对；发现错误请在下方勾选「信息有误」。";
 
 /* ================= 状态 ================= */
 function freshState(){ return {step:0, cls:"", nameQ:"", sid:"", vrf:false, dobTry:"", dobOK:"", nameOk:false, probeWarn:false, ok:null, errText:"", sig1:"", picked:{}, other:{s:"",u:""}, sig2:"", subAt:"", agree:false, admin:false}; }
@@ -207,9 +206,8 @@ var LSF = "reg_fail_v3", LSA = "reg_alerts_v3";
 /* 纸质确认表建议声明：基本信息已在线上确认，纸质表只确认科目 */
 var PAPER_NOTE = "本人已在线上核对并确认本人基本信息（姓名大写拼写、性别、出生日期）无误；本次签字仅确认下列报考科目与单元，请逐项核对后签名。";
 
-/* ================= 服务端同步层 =================
-   在线：服务端是唯一数据源，本机 localStorage 只作缓存；
-   离线（直接双击打开 file://）：自动退回单机演示模式，逻辑不变。 */
+/* ================= 本机演示层 =================
+   本页固定离线：所有数据只写入访客浏览器 localStorage，不连接任何服务端。 */
 var API_ON = false, ADMIN_TOKEN = "", SYNC_LOCK = false, SERVER_SEASON = "";
 var SEASON_LIST = [];
 function apiGet(p){ return fetch(p,{cache:"no-store"}).then(function(r){return r.json()}) }
@@ -229,37 +227,13 @@ function applyBoot(b){
   var t = document.getElementById("hdTitle"), s = document.getElementById("hdsub"), bn = document.getElementById("hdBanner");
   if(t) t.textContent = "ICC全球大考报名系统 · " + (b.name||"全球大考报名");
   if(s) s.textContent = "填报时间：" + (b.winText||"") + "　考试季编号：" + (b.seasonId||"");
-  if(bn) bn.textContent = "请核对本人信息后完成报考。本页仅显示通过身份验证后的本人档案。";
+  if(bn) bn.textContent = "本页仅显示通过身份验证后的本人档案。";
 }
 function bootServer(){
-  /* GitHub Pages 静态托管：直接进入离线演示模式 */
+  /* GitHub Pages 静态托管：固定离线演示，页首说明直接写在 HTML 中 */
   API_ON = false;
-  syncTip("公开演示模式 · 数据仅保存在本机浏览器");
-  var _s = document.getElementById("hdsub");
-  if(_s) _s.textContent = "公开演示 · 流程体验，不代表真实报考";
-  var _bn = document.getElementById("hdBanner");
-  if(_bn) _bn.textContent = "演示模式：数据只保存在你自己的浏览器中，不会上传，也不会被教务收到。";
+  syncTip("离线演示 · 无服务端");
   return Promise.resolve(false);
-  return apiGet("/api/boot").then(function(b){
-    if(!b || !b.ok) return false;
-    API_ON = true;
-    var old = ""; try{ old = localStorage.getItem("reg_season")||"" }catch(e){}
-    if(old && old !== b.seasonId){
-      [LSK,LSU,LSM,LST,LSF,LSA,LSP].forEach(function(k){ localStorage.removeItem(k) });
-      S = freshState();
-    }
-    try{ localStorage.setItem("reg_season", b.seasonId) }catch(e){}
-    SERVER_SEASON = b.seasonId;
-    applyBoot(b);
-    syncTip("已连接服务器 · " + b.seasonId);
-    return true;
-  }).catch(function(){
-    API_ON = false;
-    syncTip("离线演示模式（数据只存在本机）", true);
-    var bn = document.getElementById("hdBanner");
-    if(bn) bn.textContent = "离线演示：未连接到服务器，数据只保存在本机浏览器，仅供流程演示。";
-    return false;
-  });
 }
 var _syncT = null;
 function syncLater(){ if(!API_ON || SYNC_LOCK) return; clearTimeout(_syncT); _syncT = setTimeout(syncNow, 300); }
@@ -465,7 +439,7 @@ function enterHTML(){
     h += '<p class="hint">本设备已失败 '+f0.n+' 次，还可尝试 '+(FAIL_MAX-f0.n)+' 次；超过将暂时锁定 '+FAIL_LOCK_MIN+' 分钟。</p>';
   h += '<div id="msg"></div>';
   h += '<button class="btn" id="btnVrf">验证并查看我的信息</button>';
-  h += '<div class="foot">出生日期是进入本人档案的唯一凭据，请不要告知他人。本页访问已记录，非本人查询将被追查。</div></div>';
+  h += '<div class="foot">本页访问已记录，非本人查询将被追查。</div></div>';
   return h;
 }
 function bindEnter(){
@@ -541,70 +515,8 @@ function doVerifyLocal(){
   saveTickets(T);
   S.vrf=true; S.nameOk=false; saveCur(S); goAfterVerify();
 }
-/* 在线验证：姓名与出生日期都送到服务端比对，学生名单不下发到浏览器 */
-function nameCheckMasked(mk, nd){
-  var h = '<div class="err">姓名与出生日期不匹配（你填写的是 '+esc(nd)+'）。</div>';
-  h += '<div class="lockbox"><b>请先核对姓名是否输错</b>系统匹配到的是：'+esc(mk.cn)+' · '+esc(mk.cls)+' · '+esc(mk.g)
-    + '。<br>若这不是你，请返回上方修改姓名；若确是你，说明学籍记录的出生日期可能有问题，可提交教务核实。</div>';
-  h += '<div class="agree'+(S.nameOk?" on":"")+'" id="nmOk"><input type="checkbox" id="nmOkCb"'+(S.nameOk?" checked":"")+'><div>我确认姓名与班级输入无误，是学籍记录的出生日期需要核实</div></div>';
-  h += '<button class="btn" id="btnNameOk"'+(S.nameOk?"":" disabled")+'>确认姓名无误，提交核实并继续</button>';
-  return h;
-}
-function doVerify(){
-  if(!API_ON){ doVerifyLocal(); return; }
-  var f = failInfo();
-  if(f.until && f.until > Date.now()){ $("msg").innerHTML = '<div class="err">本设备已暂时锁定，请在 '+esc(fmtTime(new Date(f.until).toISOString()))+' 后重试，或携带证件到教务线下核实。</div>'; return; }
-  if(!S.cls){ $("msg").innerHTML = '<div class="err">请先选择所在班级。</div>'; return; }
-  var q = (($("inpName").value)||"").trim();
-  if(!q){ $("msg").innerHTML = '<div class="err">请输入完整姓名。</div>'; return; }
-  var dv = $("inpDob"), v = (dv && dv.value||"").trim();
-  if(!v){ $("msg").innerHTML = '<div class="err">请输入出生日期（例：2009-03-21）。</div>'; return; }
-  S.nameQ = q; S.dobTry = v; saveCur(S);
-  var btn = $("btnVrf"); if(btn){ btn.disabled = true; btn.textContent = "正在验证…"; }
-  apiPost("/api/verify",{cls:S.cls, name:q, dob:v, nameOk:!!S.nameOk}).then(function(res){
-    if(btn){ btn.disabled = false; btn.textContent = "验证并查看我的信息"; }
-    if(!res || !res.code){ $("msg").innerHTML = '<div class="err">服务器未响应，请稍后重试。</div>'; return; }
-    if(res.code === "nomatch"){
-      $("msg").innerHTML = '<div class="err">未匹配到记录。请核对班级与姓名，并确认已输入<b>完整姓名</b>；仍无法匹配请联系教务核实名单。</div>'; return;
-    }
-    if(res.code === "locked"){
-      var n = res.n||0, un = res.until||0;
-      saveFail({n:n, until:un});
-      S.vrf = false; saveCur(S);
-      var tail = (un && un > Date.now())
-        ? ('本设备已暂时锁定至 '+esc(fmtTime(new Date(un).toISOString()))+'，请稍后重试或携带证件到教务线下核实。')
-        : ('剩余尝试 '+Math.max(0, FAIL_MAX-n)+' 次，超限将锁定本设备 '+FAIL_LOCK_MIN+' 分钟并通知教务。');
-      var who = res.masked ? ('<div class="lockbox"><b>若怀疑是姓名输错</b>系统匹配到的是：'+esc(res.masked.cn)+' · '+esc(res.masked.cls)+' · '+esc(res.masked.g)+'。若这不是你，请返回上方修改姓名。</div>') : '';
-      $("msg").innerHTML = '<div class="err">出生日期验证未通过。查看已提交的报考信息须通过本人身份验证，'+tail+'</div>'+who;
-      return;
-    }
-    if(res.code === "nameCheck"){
-      S.sid = res.sid; S.nameOk = false; saveCur(S);
-      $("msg").innerHTML = nameCheckMasked(res.masked, res.tryDob); bindNameCheck();
-      return;
-    }
-    if(res.code === "ticket"){
-      /* 出生日期未通过：只登记等待教务核实，绝不进入本人档案、也不清零失败计数 */
-      S.vrf = false; S.nameOk = false; saveCur(S);
-      $("msg").innerHTML = '<div class="lockbox"><b>已提交教务核实</b>你填写的出生日期与学籍记录不一致，教务核对后会联系你。请核对身份证件后重新验证，或携带证件到教务线下处理。</div>';
-      return;
-    }
-    SYNC_LOCK = true;
-    S.sid = res.sid; S.dobOK = res.dob; S.vrf = true; S.nameOk = false;
-    STUDENTS = STUDENTS.filter(function(x){ return x.id !== res.sid }).concat([res.student]);
-    try{ sessionStorage.setItem("reg_self_"+(SERVER_SEASON||""), JSON.stringify(res.student)); }catch(e){}
-    var mm = master(); delete mm[res.sid]; saveMaster(mm);
-    if(res.record){ var rr = load(); rr[res.sid] = res.record; save(rr); }
-    if(res.ticket){ var tt = tickets(); tt[res.sid] = res.ticket; saveTickets(tt); }
-    SYNC_LOCK = false;
-    saveFail({n:0, until:0});
-    saveCur(S);
-    goAfterVerify();
-  }).catch(function(){
-    if(btn){ btn.disabled = false; btn.textContent = "验证并查看我的信息"; }
-    API_ON = false; syncTip("已退回离线模式（数据只存在本机）", true); doVerifyLocal();
-  });
-}
+/* 本页固定离线演示：验证只使用本机示例名单，不连接服务端 */
+function doVerify(){ doVerifyLocal(); }
 function goAfterVerify(){
   var rec = recOf(S.sid);
   if(winState()==="closed"){ S.step = rec ? 4 : 5; saveCur(S); render(); return; }
@@ -833,8 +745,7 @@ function doneHTML(){
   if(!rec.ok) h += '<div class="sum"><h4>已提交的纠错内容</h4><p class="hint">'+esc(rec.errText)+'</p></div>';
   if(rec.reSign) h += '<div class="err">你的报考内容已被教务解锁并重新提交，此前的纸质签名已作废，请在班级确认表上<b>重新签署</b>。</div>';
   h += '<button class="btn gh" id="btnPrint">打印 / 保存我的报考清单</button>';
-  h += '<p class="hint" style="margin-top:14px">本次申请每人仅可提交一次，提交后不可自行修改或重新提交。如确需变更，请联系教务在后台处理。</p>';
-  h += '<p class="hint">班级纸质确认表由教务依据本页内容制作，班会期间须在表上核对本人报考的科目与单元后完成签名，纸质件留档。</p>';
+  h += '<p class="hint" style="margin-top:14px">班会期间请在班级纸质确认表上核对报考科目与单元并签名，纸质件留档；如确需变更报考内容，请联系教务处理。</p>';
   h += '<button class="btn gh noprint" id="btnBack2" style="margin-top:14px">重新查询其他姓名</button></div>';
   return h;
 }
@@ -926,7 +837,7 @@ function adminHTML(){
     h += '<p class="hint">适用班级（英文逗号分隔，留空沿用当前季）：<input id="seaCls" class="mini" style="width:280px" value="'+esc((CLASSES||[]).join(","))+'"></p>';
     h += '<p class="hint"><label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="seaRoster" style="width:auto;margin:0"> 同时把当前季学生名单复制到新季</label></p>';
     h += '<p class="hint" style="margin-top:12px">导入本季学生名单（每行：学号,班级,中文名,姓名大写,性别,出生日期）：</p>';
-    h += '<textarea id="rosTxt" placeholder="S001,IG1,张思远,ZHANG SIYUAN,男,2009-03-12&#10;S002,IG1,李佳怡,LI JIAYI,女,2009-07-04"></textarea>';
+    h += '<textarea id="rosTxt" placeholder="S001,IG1,中文姓名,NAME PINYIN,男,YYYY-MM-DD"></textarea>';
     h += '<p><button class="mini act" id="rosGo">导入名单</button> <button class="mini" id="seaArchive">归档当前季并导出三件套</button></p>';
     h += '<p class="hint">导入名单只允许在本季尚无提交记录时整体替换；已有提交后如需换名单，请新建考试季。</p></div>';
   }
@@ -1153,7 +1064,7 @@ $("dbgAdmin").onclick = function(){
   S.admin = true; render();
 };
 $("dbgReset").onclick = function(){
-  if(!confirm("清空本机缓存的演示数据？\n（服务器上的数据不会删除）")) return;
+  if(!confirm("清空本机缓存的演示数据并恢复初始状态？")) return;
   localStorage.removeItem(LSK); localStorage.removeItem(LSU); localStorage.removeItem(LSM); localStorage.removeItem(LST);
   localStorage.removeItem(LSF); localStorage.removeItem(LSA); clearProbe();
   ADMIN_EDIT = null; ADMIN_TOKEN = "";

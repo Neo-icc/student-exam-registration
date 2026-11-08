@@ -360,6 +360,18 @@ def main():
     check("I7 在线模式前端零名单（STUDENTS=[]）", "var STUDENTS = []" in html)
     check("I8 前端采集 UA-CH 高熵值并标注可伪造",
           "getHighEntropyValues" in html and "uaModel" in html and "可伪造" in html)
+    # 生产前端不得预置虚构名单，也不得保留可在服务不可达时对虚构数据验证的离线分支
+    check("I13 生产前端不预置虚构名单（无 DEMO_ROSTER）",
+          "DEMO_ROSTER" not in html and "张思远" not in html and "李佳怡" not in html,
+          "前端仍内嵌虚构示例学生")
+    check("I14 服务不可达时只读提示、不提供离线填写",
+          "doVerifyLocal" not in html and "nameCheckHTML" not in html
+          and "SERVER_DOWN" in html and "报名服务暂不可用" in html,
+          "仍保留离线验证回退或缺少只读阻断")
+    # 须知与页脚不得重复同一句追查提示
+    check("I15 须知与第 1 步页脚无重复追查句",
+          html.count("本页访问已记录，非本人查询将被追查") == 1,
+          "追查句在前端重复出现")
     # 失败锁定：第 3 次当次即返回 locked，且按「出口 IP + 目标学生」隔离
     r1 = verify("AS1", "刘雨桐", "2000-03-03")
     r2 = verify("AS1", "刘雨桐", "2000-03-03")
