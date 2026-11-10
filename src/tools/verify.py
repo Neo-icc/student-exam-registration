@@ -9,6 +9,7 @@
 覆盖：加密落盘、零名单启动、身份验证与信息泄露、双因子、个人信息告知、
       服务端权威时间/设备时间线、后台鉴权、加密备份恢复、攻击面回归、前端静态检查。
 脚本只使用公开默认口令与随机生成的测试口令，不含任何真实凭据或学生真实数据。
+本机存在全局代理时无需额外设置 NO_PROXY：回环目标自动强制直连，远端目标沿用环境代理。
 """
 import json
 import os
@@ -20,10 +21,25 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 BASE = os.environ.get("VERIFY_URL", "http://127.0.0.1:8093").rstrip("/")
 SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_PASS = os.environ.get("VERIFY_ADMIN_PASS", "exam2026")
+
+
+def _loopback(url):
+    """目标主机是否为本地回环地址。"""
+    host = (urlparse(url).hostname or "").lower()
+    return host in ("localhost", "127.0.0.1", "::1") or host.startswith("127.")
+
+
+# 本机有全局代理（如 http_proxy=http://127.0.0.1:7286）时，urllib 默认连
+# 127.0.0.1 也会走代理；停服后代理回 502，会让「服务已停」类断言假失败。
+# 因此回环目标强制直连；验收远端线上实例时仍沿用环境代理，不破坏受限网络。
+_DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+_DEFAULT = urllib.request.build_opener()
+OPENER = _DIRECT if _loopback(BASE) else _DEFAULT
 
 PASS, FAIL = [], []
 TOKEN = ""
@@ -49,12 +65,32 @@ def req(path, obj=None, headers=None, method=None, raw=False):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
     r = urllib.request.Request(url, data=data, headers=h, method=method or ("POST" if obj is not None else "GET"))
     try:
-        with urllib.request.urlopen(r, timeout=20) as resp:
+        with OPENER.open(r, timeout=20) as resp:
             body = resp.read()
             return resp.status, dict(resp.headers), body if raw else _parse(body)
     except urllib.error.HTTPError as e:
         body = e.read()
         return e.code, dict(e.headers), body if raw else _parse(body)
+
+
+def proxy_channel_check():
+    """确认请求通道不被本机全局代理干扰，返回 (是否通过, 说明)。"""
+    direct = _loopback(BASE)
+    if (OPENER is _DIRECT) != direct:
+        return False, "opener 选择与目标主机不匹配：" + BASE
+    if not direct:
+        return True, "远端目标沿用环境代理"
+    # 端口 1 恒无服务：直连应抛 URLError；若被代理接管会返回 HTTPError(502/503)。
+    probe = urllib.request.Request("http://127.0.0.1:1/api/health")
+    try:
+        with OPENER.open(probe, timeout=3) as resp:
+            return False, "回环端口 1 意外返回 HTTP %s" % resp.status
+    except urllib.error.HTTPError as e:
+        return False, "回环请求被环境代理接管：HTTP %s" % e.code
+    except urllib.error.URLError:
+        return True, ""
+    except Exception as e:
+        return True, "直连异常（非代理）：" + type(e).__name__
 
 
 def _parse(body):
@@ -467,6 +503,12 @@ def main():
     _, h_api, _ = get("/api/boot", {"User-Agent": UA_DINGTALK})
     check("K4 钉钉端接口响应同样不带 DENY（避免控制台报错）",
           hdr(h_api, "X-Frame-Options") != "DENY")
+
+    # ===== L 验证通道可移植性 =====
+    # 本机全局代理会把 127.0.0.1 请求也转给代理，曾导致回归假失败。
+    section("L 验证通道可移植性")
+    ok_ch, why_ch = proxy_channel_check()
+    check("L1 验证请求不受本机全局代理干扰（回环直连 / 远端沿用代理）", ok_ch, why_ch)
 
     print("\n===== 汇总：PASS %d / FAIL %d =====" % (len(PASS), len(FAIL)))
     if FAIL:
