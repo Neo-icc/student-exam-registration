@@ -208,6 +208,9 @@ button:focus-visible{outline:none;box-shadow:var(--ring)}
 .mini{padding:6px 11px;font-size:12.5px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2)}
 .mini:hover{border-color:var(--brand-2);color:var(--brand)}
 .mini.act{background:var(--brand);color:#fff;border-color:var(--brand)}
+/* 后台内联小控件不应被通用 select 规则撑成整行 */
+select.mini,input[type=datetime-local].mini{width:auto;min-height:0;display:inline-block;padding:5px 9px;padding-right:25px;background-position:right 8px center;vertical-align:middle}
+input[type=datetime-local].mini{padding-right:9px}
 
 /* ---------- 标签 / 数据 ---------- */
 .tag{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:5px;background:var(--ok-bg);color:var(--ok);font-weight:600}
