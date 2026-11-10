@@ -2,109 +2,246 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ICC全球大考报名系统</title>
 <style>
+/* ICC全球大考报名系统 · 界面样式
+   原则：零外部依赖、移动端优先、桌面合理宽度、语义色克制、焦点与层级清晰。
+   本文件只替换 <style> 内容，不改动任何业务逻辑与元素 ID。 */
+:root{
+  --bg:#F2F5FA; --surface:#FFFFFF; --surface-2:#F7F9FC;
+  --border:#E3E9F1; --border-2:#CBD5E1;
+  --text:#17263B; --text-2:#52637A; --text-3:#8A97A9;
+  --brand:#1B4F8F; --brand-2:#2C72C4; --brand-soft:#E9F1FC;
+  --ok:#0F6E56; --ok-bg:#E7F5EF; --ok-line:#BFE6D5;
+  --warn:#8A5A00; --warn-bg:#FFF4DF; --warn-line:#F0D49A;
+  --danger:#A32D2D; --danger-bg:#FDECEC; --danger-line:#F3C9C9;
+  --r:14px; --r-sm:10px;
+  --shadow:0 8px 32px rgba(23,48,84,.08);
+  --ring:0 0 0 3px rgba(44,114,196,.18);
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#F1EFE8;color:#2C2C2A;font-size:15px;line-height:1.6}
-.wrap{max-width:430px;margin:0 auto;background:#fff;min-height:100vh;box-shadow:0 0 24px rgba(0,0,0,.06)}
-.wrap.wide{max-width:980px}
-.hd{background:#185FA5;color:#fff;padding:14px 18px}
-.hd h1{margin:0;font-size:16px;font-weight:500}
-.hd p{margin:2px 0 0;font-size:12px;opacity:.85}
-.banner{background:#FAEEDA;color:#633806;font-size:12px;padding:8px 18px;border-bottom:1px solid #FAC775}
-.pad{padding:18px}
-.stepbar{display:flex;gap:4px;padding:12px 18px 0}
-.stepbar i{flex:1;height:4px;border-radius:2px;background:#D3D1C7}
-.stepbar i.on{background:#185FA5}
-h2.sec{font-size:15px;font-weight:500;margin:0 0 4px}
-p.hint{font-size:12px;color:#5F5E5A;margin:0 0 14px}
-label.f{display:block;font-size:13px;color:#444441;margin:14px 0 6px}
-select,input[type=text],textarea{width:100%;padding:11px 12px;border:1px solid #B4B2A9;border-radius:8px;font-size:15px;font-family:inherit;background:#fff;color:#2C2C2A}
-select:disabled,input:disabled{background:#F1EFE8;color:#888780}
-textarea{min-height:88px;resize:vertical}
-.sug{border:1px solid #B4B2A9;border-top:none;border-radius:0 0 8px 8px;margin-top:-6px;overflow:hidden}
-.sug div{padding:10px 12px;font-size:14px;border-top:1px solid #F1EFE8;cursor:pointer}
-.card{border:1px solid #B4B2A9;border-radius:12px;padding:14px;margin-bottom:12px}
-.ro{display:grid;grid-template-columns:96px 1fr;gap:8px 10px;font-size:14px}
-.ro b{font-weight:400;color:#5F5E5A}
-.ro span{font-weight:500;word-break:break-all}
-.ro span.en{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px}
-.lock{font-size:11px;color:#854F0B;background:#FAEEDA;display:inline-block;padding:2px 8px;border-radius:4px;margin-bottom:12px}
-.srcnote{background:#E6F1FB;border-left:3px solid #185FA5;color:#0C447C;font-size:12.5px;padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:12px}
-.idcard{border:1px solid #185FA5;background:#E6F1FB;border-radius:12px;padding:14px 16px;margin-bottom:12px;text-align:center}
-.idcard .lab{font-size:11px;color:#185FA5;letter-spacing:1px;margin-bottom:6px}
-.idcard .big{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:22px;font-weight:600;letter-spacing:1.5px;color:#0C447C;word-break:break-all;line-height:1.3}
-.idcard .cn{font-size:17px;font-weight:600;color:#2C2C2A;margin-top:4px}
-.idcard .sub{font-size:12.5px;color:#5F5E5A;margin-top:5px}
-.idcard .tip{font-size:12px;color:#A32D2D;margin-top:8px;background:#FBEAEA;border-radius:6px;padding:7px 9px}
-.radio{border:1px solid #B4B2A9;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;cursor:pointer}
-.radio.on{border-color:#185FA5;background:#E6F1FB}
-.radio input{margin-top:3px;accent-color:#185FA5}
-.radio small{display:block;font-size:12px;color:#5F5E5A}
-.subj{border:1px solid #B4B2A9;border-radius:12px;margin-bottom:10px;overflow:hidden}
-.subj>.top{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer}
-.subj.sel{border-color:#185FA5}
-.subj.sel>.top{background:#E6F1FB}
-.subj .cb{width:19px;height:19px;border:2px solid #888780;border-radius:5px;flex:none}
-.subj.sel .cb{background:#185FA5;border-color:#185FA5;position:relative}
-.subj.sel .cb:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
-.subj .nm{font-size:15px;font-weight:500}
-.subj .nm em{font-style:normal;font-size:12px;color:#5F5E5A;margin-left:6px}
-.body{display:none;padding:2px 14px 14px;border-top:1px dashed #D3D1C7}
-.subj.sel .body{display:block}
-.grp{margin-top:10px}
-.grp>b{font-size:12px;color:#444441;font-weight:500;display:block;margin-bottom:6px}
-.unit{display:flex;align-items:center;gap:10px;padding:9px 2px;font-size:14px;cursor:pointer;border-top:1px solid #F1EFE8}
-.unit .ub{width:18px;height:18px;border:2px solid #888780;border-radius:4px;flex:none}
-.unit.on .ub{background:#185FA5;border-color:#185FA5;position:relative}
-.unit.on .ub:after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
-canvas.sign{width:100%;height:150px;border:1px dashed #888780;border-radius:10px;background:#fff;touch-action:none;display:block}
-.signrow{display:flex;justify-content:space-between;align-items:center;margin:6px 0 0}
-.signrow small{font-size:12px;color:#5F5E5A}
-.notice{border:1px solid #BA7517;background:#FAEEDA;border-radius:12px;padding:14px;margin-bottom:12px}
-.notice h4{margin:0 0 8px;font-size:14px;font-weight:500;color:#633806}
-.notice ol{margin:0;padding-left:20px;font-size:12.5px;color:#633806}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+  font-size:16px;line-height:1.65;color:var(--text);font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;background:var(--bg);
+  background-image:linear-gradient(180deg,#E7EEF8 0,#F2F5FA 250px);background-repeat:no-repeat;
+}
+
+/* ---------- 容器：桌面居中卡片，手机全屏 ---------- */
+.wrap{
+  max-width:780px;margin:28px auto 40px;background:var(--surface);
+  border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;
+}
+.wrap.wide{max-width:1120px}
+@media (max-width:820px){
+  /* 手机端无圆角，不再需要裁切；放开 overflow 以免教务后台宽表被永久裁掉 */
+  .wrap,.wrap.wide{margin:0;border:0;border-radius:0;box-shadow:none;min-height:100vh;max-width:none;overflow:visible}
+}
+
+/* ---------- 页头 ---------- */
+.hd{
+  position:relative;overflow:hidden;padding:24px 32px 22px;color:#fff;
+  background:linear-gradient(118deg,#163C6E 0%,#1B4F8F 56%,#2C72C4 100%);
+}
+.hd:after{content:"";position:absolute;right:-46px;top:-86px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.055);pointer-events:none}
+.hd h1{margin:0;font-size:21px;font-weight:650;letter-spacing:.3px;line-height:1.35}
+.hd p{margin:5px 0 0;font-size:13px;opacity:.84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+@media (max-width:820px){.hd{padding:18px 20px 17px}.hd h1{font-size:19px}}
+
+/* ---------- 状态细条 ---------- */
+.banner{
+  display:flex;align-items:center;gap:9px;padding:9px 32px;font-size:12.5px;color:var(--text-2);
+  background:var(--surface-2);border-bottom:1px solid var(--border);
+}
+.banner:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand-2);flex:none}
+@media (max-width:820px){.banner{padding:8px 20px}}
+
+/* ---------- 步骤导航 ---------- */
+.stepnav{display:flex;align-items:flex-start;padding:24px 32px 4px;background:var(--surface)}
+.stepnav .st{flex:1;min-width:0;position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center}
+.stepnav .st:not(:last-child):after{
+  content:"";position:absolute;top:13px;left:calc(50% + 20px);right:calc(-50% + 20px);
+  height:2px;background:var(--border);
+}
+.stepnav .st.done:not(:last-child):after{background:var(--brand-2)}
+.stepnav .dot{
+  position:relative;z-index:1;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+  font-size:12px;font-weight:700;color:var(--text-3);background:var(--surface-2);border:2px solid var(--border-2);
+}
+.stepnav .st.on .dot{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 0 0 4px var(--brand-soft)}
+.stepnav .st.done .dot{background:var(--brand-2);border-color:var(--brand-2);color:#fff}
+.stepnav .tx{font-size:11.5px;color:var(--text-3);white-space:nowrap}
+.stepnav .st.on .tx{color:var(--brand);font-weight:700}
+.stepnav .st.done .tx{color:var(--text-2)}
+@media (max-width:820px){.stepnav{padding:20px 16px 2px}.stepnav .tx{font-size:11px}}
+@media (max-width:360px){.stepnav .tx{font-size:10px}}
+/* 兼容旧细条（若被调用） */
+.stepbar{display:flex;gap:5px;padding:20px 32px 0}
+.stepbar i{flex:1;height:4px;border-radius:2px;background:var(--border)}
+.stepbar i.on{background:var(--brand-2)}
+
+/* ---------- 内容区与标题 ---------- */
+.pad{padding:22px 32px 32px}
+@media (max-width:820px){.pad{padding:18px 20px 28px}}
+.sec-head{margin:6px 0 22px}
+h2.sec{font-size:22px;font-weight:650;letter-spacing:.2px;line-height:1.35;margin:0 0 6px}
+p.hint{font-size:14px;line-height:1.7;color:var(--text-2);margin:0 0 18px}
+@media (max-width:820px){h2.sec{font-size:20px}}
+
+/* ---------- 表单 ---------- */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+@media (max-width:640px){.form-grid{grid-template-columns:1fr}}
+.field{margin-bottom:18px;min-width:0}
+label.f{display:block;font-size:14px;font-weight:600;color:var(--text);margin:0 0 8px}
+select,input[type=text],textarea{
+  width:100%;min-height:48px;padding:11px 14px;font-family:inherit;font-size:15.5px;color:var(--text);
+  background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r-sm);
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+select{
+  appearance:none;padding-right:38px;
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2352637A' stroke-width='1.8'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+}
+select:focus,input[type=text]:focus,textarea:focus{outline:none;border-color:var(--brand-2);box-shadow:var(--ring)}
+select:disabled,input:disabled{background:var(--surface-2);color:var(--text-3);cursor:not-allowed}
+textarea{min-height:96px;resize:vertical;line-height:1.6}
+.field-hint{font-size:12.5px;line-height:1.6;color:var(--text-3);margin:7px 0 0}
+.sug{border:1px solid var(--border-2);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);margin-top:-6px;overflow:hidden;background:var(--surface)}
+.sug div{padding:10px 14px;font-size:14px;border-top:1px solid var(--border);cursor:pointer}
+.sug div:hover{background:var(--brand-soft)}
+
+/* ---------- 卡片 / 档案 ---------- */
+.card,.sum{
+  border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:14px;
+  background:var(--surface);box-shadow:0 1px 3px rgba(23,48,84,.03);
+}
+.sum h4,.card h4{margin:0 0 8px;font-size:15px;font-weight:650}
+.sum ul{margin:0;padding-left:20px;font-size:13.5px;color:var(--text-2);line-height:1.8}
+.ro{display:grid;grid-template-columns:110px 1fr;gap:10px 14px;font-size:14.5px;line-height:1.6}
+.ro b{font-weight:400;color:var(--text-3)}
+.ro span{font-weight:600;word-break:break-word}
+.ro span.en{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px;font-size:13.5px}
+.idcard{
+  border:1px solid #C8DCF5;border-radius:var(--r);padding:20px;margin-bottom:16px;text-align:center;
+  background:linear-gradient(160deg,#F0F6FE,#E4EFFC);
+}
+.idcard .lab{font-size:11px;color:var(--brand);letter-spacing:1.4px;margin-bottom:8px;font-weight:600}
+.idcard .big{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:22px;font-weight:700;letter-spacing:1.5px;color:#123C6D;word-break:break-word;line-height:1.35}
+.idcard .cn{font-size:18px;font-weight:700;color:var(--text);margin-top:6px}
+.idcard .sub{font-size:13px;color:var(--text-2);margin-top:6px}
+.idcard .tip{font-size:12.5px;color:var(--danger);margin-top:10px;background:var(--danger-bg);border-radius:8px;padding:8px 10px}
+.lock{font-size:11px;color:var(--warn);background:var(--warn-bg);display:inline-block;padding:3px 9px;border-radius:5px;margin-bottom:12px}
+.srcnote{background:var(--brand-soft);border-left:3px solid var(--brand-2);color:var(--brand);font-size:13px;line-height:1.75;padding:11px 14px;border-radius:0 var(--r-sm) var(--r-sm) 0;margin-bottom:14px}
+
+/* ---------- 提示 / 告警 ---------- */
+.notice{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--brand-2);border-radius:var(--r);padding:15px 18px;margin-bottom:16px}
+.notice h4{margin:0 0 9px;font-size:14.5px;font-weight:650;color:var(--brand)}
+.notice ol{margin:0;padding-left:20px;font-size:13.5px;line-height:1.8;color:var(--text-2)}
 .notice li{margin-bottom:5px}
-.agree{display:flex;gap:10px;align-items:flex-start;border:1px solid #B4B2A9;border-radius:10px;padding:12px 14px;cursor:pointer;font-size:14px}
-.agree.on{border-color:#185FA5;background:#E6F1FB}
-.agree input{margin-top:3px;accent-color:#185FA5}
-button{font-family:inherit;font-size:15px;border-radius:10px;padding:12px 16px;border:none;cursor:pointer}
-.btn{width:100%;background:#185FA5;color:#fff;margin-top:18px}
-.btn:disabled{background:#B4B2A9}
-.btn.gh{background:#fff;color:#185FA5;border:1px solid #185FA5}
-.btnrow{display:flex;gap:10px;margin-top:18px}
+.lockbox{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn);border-radius:var(--r);padding:14px 16px;font-size:13.5px;line-height:1.75;margin-bottom:16px}
+.lockbox b{display:block;font-size:14.5px;font-weight:650;margin-bottom:4px}
+.warnbox{background:var(--surface-2);border:1px dashed var(--border-2);color:var(--text-2);border-radius:var(--r);padding:24px 20px;text-align:center;font-size:14px;line-height:1.75}
+.warnbox b{display:block;font-size:16px;font-weight:650;color:var(--text);margin-bottom:6px}
+.err{background:var(--danger-bg);border:1px solid var(--danger-line);color:var(--danger);font-size:13.5px;line-height:1.7;padding:11px 14px;border-radius:var(--r-sm);margin-top:12px}
+.ok{background:var(--ok-bg);border:1px solid var(--ok-line);color:var(--ok);font-size:13.5px;line-height:1.7;padding:11px 14px;border-radius:var(--r-sm);margin-top:12px}
+
+/* ---------- 个人信息处理告知 ---------- */
+.consent{border:1px solid var(--border);border-radius:var(--r);margin:20px 0 18px;overflow:hidden;background:var(--surface)}
+.consent .consent-hd{display:flex;align-items:center;gap:9px;padding:12px 16px;font-size:14px;font-weight:650;color:var(--brand);background:var(--brand-soft);border-bottom:1px solid var(--border)}
+.consent .consent-hd:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--brand-2);flex:none}
+.consent .consent-body{padding:14px 16px;font-size:13.5px;line-height:1.85;color:var(--text-2);max-height:210px;overflow-y:auto}
+.agree{
+  display:flex;gap:11px;align-items:center;border:0;border-top:1px solid var(--border);border-radius:0;
+  padding:13px 16px;cursor:pointer;font-size:14px;font-weight:600;background:var(--surface);transition:background .18s;
+}
+.agree.on{background:var(--brand-soft);color:var(--brand)}
+.agree input{width:18px;height:18px;flex:none;margin:0;accent-color:var(--brand-2);cursor:pointer}
+
+/* ---------- 选择控件 ---------- */
+.radio{border:1px solid var(--border-2);border-radius:var(--r-sm);padding:13px 15px;margin-bottom:10px;display:flex;gap:11px;align-items:flex-start;cursor:pointer;transition:border-color .18s,background .18s}
+.radio:hover{border-color:var(--brand-2)}
+.radio.on{border-color:var(--brand-2);background:var(--brand-soft)}
+.radio input{margin-top:4px;accent-color:var(--brand-2);width:17px;height:17px;flex:none}
+.radio small{display:block;font-size:12.5px;color:var(--text-2);line-height:1.6}
+.subj{border:1px solid var(--border);border-radius:var(--r);margin-bottom:11px;overflow:hidden;transition:border-color .18s,box-shadow .18s}
+.subj.sel{border-color:var(--brand-2);box-shadow:0 2px 10px rgba(44,114,196,.09)}
+.subj>.top{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
+.subj.sel>.top{background:var(--brand-soft)}
+.subj .cb{width:20px;height:20px;border:2px solid var(--border-2);border-radius:5px;flex:none;position:relative}
+.subj.sel .cb{background:var(--brand);border-color:var(--brand)}
+.subj.sel .cb:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+.subj .nm{font-size:15px;font-weight:600}
+.subj .nm em{font-style:normal;font-size:12.5px;color:var(--text-3);margin-left:7px;font-weight:400}
+.body{display:none;padding:4px 16px 16px;border-top:1px dashed var(--border)}
+.subj.sel .body{display:block}
+.grp{margin-top:14px}
+.grp>b{font-size:12.5px;color:var(--text-2);font-weight:650;display:block;margin-bottom:7px}
+.unit{display:flex;align-items:center;gap:11px;padding:10px 2px;font-size:14px;cursor:pointer;border-top:1px solid var(--border)}
+.unit:hover{color:var(--brand)}
+.unit .ub{width:19px;height:19px;border:2px solid var(--border-2);border-radius:5px;flex:none;position:relative}
+.unit.on .ub{background:var(--brand-2);border-color:var(--brand-2)}
+.unit.on .ub:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg)}
+canvas.sign{width:100%;height:158px;border:1px dashed var(--border-2);border-radius:var(--r-sm);background:var(--surface);touch-action:none;display:block}
+.signrow{display:flex;justify-content:space-between;align-items:center;margin:8px 0 0}
+.signrow small{font-size:12.5px;color:var(--text-3)}
+
+/* ---------- 按钮 ---------- */
+button{font-family:inherit;font-size:15px;border-radius:var(--r-sm);padding:12px 18px;border:none;cursor:pointer;transition:background .18s,box-shadow .18s,transform .12s}
+button:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn{width:100%;min-height:50px;background:var(--brand);color:#fff;font-size:15.5px;font-weight:650;margin-top:22px;box-shadow:0 3px 12px rgba(27,79,143,.18)}
+.btn:hover{background:#143E73}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{background:var(--border-2);color:#fff;box-shadow:none;cursor:not-allowed;transform:none}
+.btn.gh{background:var(--surface);color:var(--brand);border:1px solid var(--brand-2);box-shadow:none}
+.btn.gh:hover{background:var(--brand-soft)}
+.btnrow{display:flex;gap:12px;margin-top:22px}
 .btnrow .btn{width:auto;margin-top:0;flex:1}
 .btnrow .btn.gh{flex:0 0 34%}
-.link{background:none;color:#185FA5;font-size:13px;padding:0;text-decoration:underline}
-.sum{border:1px solid #B4B2A9;border-radius:12px;padding:14px;margin-bottom:12px}
-.sum h4{margin:0 0 6px;font-size:14px;font-weight:500}
-.sum ul{margin:0;padding-left:18px;font-size:13px;color:#444441}
-.err{background:#FCEBEB;color:#A32D2D;font-size:13px;padding:10px 12px;border-radius:8px;margin-top:10px}
-.ok{background:#E1F5EE;color:#0F6E56;font-size:13px;padding:10px 12px;border-radius:8px;margin-top:10px}
-.warnbox{background:#FAEEDA;border:1px solid #FAC775;color:#633806;border-radius:12px;padding:16px;text-align:center;font-size:14px}
-.warnbox b{display:block;font-size:15px;margin-bottom:4px}
-.lockbox{background:#EEEDFE;border:1px solid #AFA9EC;color:#3C3489;border-radius:10px;padding:11px 13px;font-size:13px;margin-bottom:12px}
-.lockbox b{display:block;font-size:14px;margin-bottom:3px}
-.chg{background:#FAEEDA;color:#854F0B;font-size:11.5px;padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:400;white-space:nowrap}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-th,td{border:1px solid #D3D1C7;padding:6px 8px;text-align:left}
-th{background:#F1EFE8;font-weight:500;white-space:nowrap}
-.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
-.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;background:#E1F5EE;color:#0F6E56}
-.tag.bad{background:#FCEBEB;color:#A32D2D}
-.tag.warn{background:#FAEEDA;color:#854F0B}
-.tag.wait{background:#F1EFE8;color:#5F5E5A}
+.link{background:none;color:var(--brand-2);font-size:13px;padding:0;text-decoration:none;border-bottom:1px solid transparent}
+.link:hover{border-bottom-color:currentColor}
+.mini{padding:6px 11px;font-size:12.5px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text-2)}
+.mini:hover{border-color:var(--brand-2);color:var(--brand)}
+.mini.act{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+/* ---------- 标签 / 数据 ---------- */
+.tag{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:5px;background:var(--ok-bg);color:var(--ok);font-weight:600}
+.tag.bad{background:var(--danger-bg);color:var(--danger)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.wait{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)}
+.chg{background:var(--warn-bg);color:var(--warn);font-size:11px;padding:2px 7px;border-radius:5px;margin-left:6px;font-weight:400;white-space:nowrap}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top;word-break:break-word}
+th{background:var(--surface-2);font-weight:650;color:var(--text-2)}
 .grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.stat{border:1px solid #B4B2A9;border-radius:12px;padding:12px}
-.stat b{display:block;font-size:24px;font-weight:500;color:#185FA5}
-.stat span{font-size:12px;color:#5F5E5A}
-.dbg{background:#F1EFE8;font-size:12px;padding:10px 18px;border-top:1px solid #D3D1C7}
-.dbg select{width:auto;display:inline-block;padding:4px 8px;font-size:12px}
-.foot{padding:14px 18px 30px;font-size:12px;color:#888780}
-.mini{padding:2px 6px;font-size:12px;border-radius:6px;border:1px solid #B4B2A9;background:#fff}
-.mini.act{background:#185FA5;color:#fff;border-color:#185FA5}
-@media print{.hd,.banner,.dbg,.stepbar,.noprint,.foot{display:none!important}body{background:#fff}.wrap{box-shadow:none;max-width:none}}
+@media (max-width:640px){.grid2{grid-template-columns:1fr}}
+.stat{border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;background:var(--surface)}
+.stat b{display:block;font-size:26px;font-weight:650;color:var(--brand);line-height:1.3}
+.stat span{font-size:12.5px;color:var(--text-3)}
+
+/* ---------- 页脚 ---------- */
+.foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-3);line-height:1.6}
+.foot-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:13px 32px 20px;font-size:12.5px;color:var(--text-3);border-top:1px solid var(--border);background:var(--surface-2)}
+.foot-bar .sync{margin-left:auto;cursor:default;font-size:12px;color:var(--text-3)}
+.foot-bar .dbg-only{font-size:12px;color:var(--text-3)}
+.foot-bar .dbg-only summary{cursor:pointer;outline:none}
+.foot-bar .dbg-only select{width:auto;display:inline-block;min-height:30px;padding:4px 9px;font-size:12px;margin-top:6px}
+@media (max-width:820px){.foot-bar{padding:12px 20px 24px}.foot-bar .sync{margin-left:0}}
+/* 兼容旧类名 */
+.dbg{background:var(--surface-2);font-size:12px;padding:10px 32px;border-top:1px solid var(--border)}
+.dbg select{width:auto;display:inline-block;padding:4px 8px;font-size:12px;min-height:30px}
+
+/* ---------- 打印 ---------- */
+@media print{
+  body{background:#fff;background-image:none}
+  .hd,.banner,.dbg,.foot-bar,.stepbar,.stepnav,.noprint,.foot,.btn,.btnrow{display:none!important}
+  .wrap,.wrap.wide{max-width:none;margin:0;border:0;box-shadow:none;border-radius:0}
+  .pad{padding:0}
+  .card,.sum,.subj,.consent{box-shadow:none;break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -115,17 +252,19 @@ th{background:#F1EFE8;font-weight:500;white-space:nowrap}
   </div>
   <div class="banner" id="hdBanner">正在载入本次报考配置…</div>
   <div id="view"></div>
-  <div class="dbg noprint">
-    教务调试：
-    <select id="dbgWin">
-      <option value="open">时间窗口：开放中</option>
-      <option value="before">时间窗口：尚未开放</option>
-      <option value="closed">时间窗口：已截止</option>
-      <option value="auto">按真实时间判断</option>
-    </select>
+  <div class="foot-bar noprint">
     <button class="link" id="dbgAdmin">教务后台</button>
     <button class="link" id="dbgReset">清空本机缓存</button>
-    <span class="link" id="syncTip" style="cursor:default"></span>
+    <span class="link sync" id="syncTip" style="cursor:default"></span>
+    <details class="dbg-only">
+      <summary>教务调试</summary>
+      <select id="dbgWin">
+        <option value="open">时间窗口：开放中</option>
+        <option value="before">时间窗口：尚未开放</option>
+        <option value="closed">时间窗口：已截止</option>
+        <option value="auto">按真实时间判断</option>
+      </select>
+    </details>
   </div>
 </div>
 
@@ -251,8 +390,8 @@ function applyBoot(b){
   if(b.privacyNote) PRIVACY_NOTE = b.privacyNote;
   var t = document.getElementById("hdTitle"), s = document.getElementById("hdsub"), bn = document.getElementById("hdBanner");
   if(t) t.textContent = "ICC全球大考报名系统";
-  if(s) s.textContent = "填报时间：" + (b.winText||"") + "　考试季编号：" + (b.seasonId||"");
-  if(bn) bn.textContent = "本页仅显示通过身份验证后的本人档案。";
+  if(s) s.textContent = b.name || "全球大考报名";
+  if(bn) bn.textContent = "报名窗口：" + WIN_TEXT;
 }
 function bootServer(){
   return apiGet("/api/boot").then(function(b){
@@ -479,43 +618,53 @@ function render(){
     if(S.sid && recOf(S.sid)){ v.innerHTML = doneHTML(); bindDone(); return; }
     v.innerHTML = closedHTML(); bindClosed(); return;
   }
-  if(S.step===0){ v.innerHTML = enterHTML(); bindEnter(); return; }
-  if(S.step===1){ v.innerHTML = stepBar(1)+infoHTML(); bindInfo(); return; }
-  if(S.step===2){ v.innerHTML = stepBar(2)+subjectHTML(); bindSubject(); return; }
-  if(S.step===3){ v.innerHTML = stepBar(3)+previewHTML(); bindPreview(); return; }
+  if(S.step===0){ v.innerHTML = stepBar(1)+enterHTML(); bindEnter(); return; }
+  if(S.step===1){ v.innerHTML = stepBar(2)+infoHTML(); bindInfo(); return; }
+  if(S.step===2){ v.innerHTML = stepBar(3)+subjectHTML(); bindSubject(); return; }
+  if(S.step===3){ v.innerHTML = stepBar(4)+previewHTML(); bindPreview(); return; }
   v.innerHTML = doneHTML(); bindDone();
 }
 function stepBar(n){
-  var h = '<div class="stepbar">';
-  for(var i=1;i<=4;i++) h += '<i class="'+(i<=n?"on":"")+'"></i>';
+  var names = ["确认身份","核对档案","选择科目","确认提交"];
+  var h = '<div class="stepnav">';
+  for(var i=1;i<=4;i++){
+    var c = i<n ? "done" : (i===n ? "on" : "");
+    h += '<div class="st '+c+'"><span class="dot">'+(i<n?"✓":i)+'</span><span class="tx">'+names[i-1]+'</span></div>';
+  }
   return h+'</div>';
 }
 
 /* ---- 步骤 0：确认身份（班级 + 姓名 + 出生日期，一步完成） ---- */
 function enterHTML(){
   var w = winState();
-  if(w==="before") return '<div class="pad"><div class="warnbox"><b>本次报考尚未开放</b>开放时间：'+WIN_TEXT+'<br>届时本页可直接填写</div></div>';
-  var h = '<div class="pad"><h2 class="sec">第 1 步 · 确认身份</h2>';
+  if(w==="before") return '<div class="pad"><div class="warnbox"><b>本次报考尚未开放</b>开放时间见页首，届时本页可直接填写</div></div>';
+  var h = '<div class="pad">';
+  h += '<div class="sec-head"><h2 class="sec">确认身份</h2>'
+     + '<p class="hint">请准确输入完整姓名与出生日期，两项均验证通过后，才会显示你的档案信息。</p></div>';
   if(w==="closed"){
-    h += '<div class="lockbox"><b>填报窗口已关闭（'+WIN_TEXT+'）</b>'
+    h += '<div class="lockbox"><b>填报窗口已关闭</b>'
       + '系统已锁定，不再受理新的提交与修改。已提交的同学可查询并打印本人的最终报考信息；未提交的同学请联系教务处理。</div>';
   }
-  h += '<p class="hint">请准确输入完整姓名，再输入本人出生日期。<b>两项均验证通过后，才会显示你的档案信息。</b></p>';
-  h += '<label class="f">所在班级</label><select id="selCls"><option value="">请选择班级</option>';
+  h += '<div class="form-grid">';
+  h += '<div class="field"><label class="f" for="selCls">所在班级</label><select id="selCls"><option value="">请选择班级</option>';
   CLASSES.forEach(function(c){h += '<option value="'+c+'"'+(S.cls===c?" selected":"")+'>'+c+'</option>'});
-  h += '</select><label class="f">姓名</label>';
-  h += '<input type="text" id="inpName" placeholder="请输入完整姓名" autocomplete="off" value="'+esc(S.nameQ||"")+'"'+(S.cls?"":" disabled")+'>';
-  h += '<label class="f">出生日期（用于身份验证）</label>';
-  h += '<input type="text" id="inpDob" placeholder="例：2009-03-21" autocomplete="off" value="'+esc(S.dobTry)+'">';
-  h += '<p class="hint" style="margin:-4px 0 10px">请填写与<b>身份证</b>一致的出生日期；不确定时可查看本人身份证。</p>';
+  h += '</select></div>';
+  h += '<div class="field"><label class="f" for="inpName">姓名</label>'
+     + '<input type="text" id="inpName" placeholder="请输入完整姓名" autocomplete="off" value="'+esc(S.nameQ||"")+'"'+(S.cls?"":" disabled")+'>'
+     + '<p class="field-hint">请填写与本人证件一致的姓名。</p></div>';
+  h += '<div class="field"><label class="f" for="inpDob">出生日期</label>'
+     + '<input type="text" id="inpDob" placeholder="例：2009-03-21" autocomplete="off" value="'+esc(S.dobTry)+'">'
+     + '<p class="field-hint">请填写与身份证一致的出生日期；不确定时可查看本人身份证。</p></div>';
   if(SECOND_FACTOR === "sid4"){
-    h += '<label class="f">学号后四位（第二验证因子）</label>';
-    h += '<input type="text" id="inpSid4" inputmode="numeric" maxlength="4" placeholder="例：0001" autocomplete="off" value="'+esc(S.sid4||"")+'">';
-    h += '<p class="hint" style="margin:-4px 0 10px">本考试季启用双因子验证，需<b>同时</b>通过出生日期与学号后四位。</p>';
+    h += '<div class="field"><label class="f" for="inpSid4">学号后四位</label>'
+      + '<input type="text" id="inpSid4" inputmode="numeric" maxlength="4" placeholder="例：0001" autocomplete="off" value="'+esc(S.sid4||"")+'">'
+      + '<p class="field-hint">本考试季启用双因子验证，需同时通过出生日期与学号后四位。</p></div>';
   }
+  h += '</div>';
   if(PRIVACY_REQUIRED){
-    h += '<div class="lockbox" style="margin:14px 0 10px"><b>个人信息处理告知</b><div style="margin-top:6px">'+PRIVACY_NOTE+'</div></div>';
-    h += '<div class="agree'+(S.privacyOk?" on":"")+'" id="pvOk"><input type="checkbox" id="pvOkCb"'+(S.privacyOk?" checked":"")+'><div>我已阅读并同意上述个人信息处理告知</div></div>';
+    h += '<div class="consent"><div class="consent-hd">个人信息处理告知</div>'
+      + '<div class="consent-body">'+PRIVACY_NOTE+'</div>'
+      + '<div class="agree'+(S.privacyOk?" on":"")+'" id="pvOk"><input type="checkbox" id="pvOkCb"'+(S.privacyOk?" checked":"")+'><div>我已阅读并同意上述个人信息处理告知</div></div></div>';
   }
   var f0 = failInfo();
   if(f0.until && f0.until > Date.now())
@@ -527,6 +676,7 @@ function enterHTML(){
   h += '<div class="foot">本页访问已记录，非本人查询将被追查。</div></div>';
   return h;
 }
+
 function bindEnter(){
   $("selCls").onchange = function(){ S.cls=this.value; S.nameQ=""; S.sid=""; S.vrf=false; S.dobTry=""; S.nameOk=false; saveCur(S); render(); var n=$("inpName"); if(n) n.focus(); };
   $("inpName").oninput = function(){ S.nameQ=this.value; S.sid=""; S.nameOk=false; saveCur(S); };
@@ -648,7 +798,7 @@ function goAfterVerify(){
 /* ---- 步骤 1：档案确认 ---- */
 function infoHTML(){
   var st = stu(S.sid);
-  var h = '<div class="pad"><h2 class="sec">第 2 步 · 核对个人信息</h2>';
+  var h = '<div class="pad"><h2 class="sec">核对个人信息</h2>';
   var tk = myTicket(S.sid), chg = st._chg || {};
   h += '<div class="srcnote">'+SRC_NOTE+'</div>';
   /* 姓名醒目化：验证通过后第一眼必须确认「这是不是我」，防止输错姓名进入他人档案 */
@@ -723,7 +873,7 @@ function bindInfo(){
 
 /* ---- 步骤 2：科目与单元 ---- */
 function subjectHTML(){
-  var h = '<div class="pad"><h2 class="sec">第 3 步 · 选择报考科目</h2>';
+  var h = '<div class="pad"><h2 class="sec">选择报考科目</h2>';
   h += '<p class="hint">可多选。勾选科目后展开该科目的单元清单，单元同样可多选。</p>';
   SUBJECTS.forEach(function(sb){
     var on = !!S.picked[sb.k];
@@ -784,7 +934,7 @@ function bindSubject(){
 /* ---- 步骤 3：预览 · 注意事项 · 签名 ---- */
 function previewHTML(){
   var st = stu(S.sid);
-  var h = '<div class="pad"><h2 class="sec">第 4 步 · 预览全部信息并签名</h2>';
+  var h = '<div class="pad"><h2 class="sec">预览并签名</h2>';
   h += '<div class="card"><span class="lock">只读信息</span><div class="ro">';
   h += '<b>姓名（大写）</b><span class="en">'+esc(st.en)+'</span>';
   h += '<b>中文姓名</b><span>'+esc(st.cn)+'</span>';
@@ -845,7 +995,7 @@ function doneHTML(){
   var rows = pickedText(rec.picked||S.picked, rec.other||S.other);
   var h = '<div class="pad">';
   if(winState()==="closed"){
-    h += '<div class="lockbox"><b>填报窗口已关闭 · 本页为只读存档</b>截止时间：'+WIN_TEXT+'。系统已锁定，不再受理提交与修改；教务将据此制作班级纸质确认表。</div>';
+    h += '<div class="lockbox"><b>填报窗口已关闭 · 本页为只读存档</b>系统已锁定，不再受理提交与修改；教务将据此制作班级纸质确认表。</div>';
   }
   h += '<div class="ok">已提交 · '+esc(fmtTime(rec.subAt))+'</div>';
   h += '<div class="card" style="margin-top:12px"><div class="ro">';
@@ -874,7 +1024,7 @@ function bindDone(){
 /* ---- 窗口关闭后 · 未提交 ---- */
 function closedHTML(){
   return '<div class="pad">'
-    + '<div class="lockbox"><b>填报窗口已关闭</b>本次报考时间：'+WIN_TEXT+'。系统已锁定，不再受理提交。</div>'
+    + '<div class="lockbox"><b>填报窗口已关闭</b>系统已锁定，不再受理提交。</div>'
     + '<div class="warnbox"><b>未查询到你的报考记录</b>你在填报窗口内未完成提交，按规则视为自动放弃本次报考。<br>如确有特殊情况，请尽快联系教务处理。</div>'
     + (function(){ var t = S.sid?myTicket(S.sid):null;
         return t && t.status==="wait" ? '<div class="lockbox"><b>你曾提交过档案纠错</b>教务尚未处理完成，因此你未能提交报考。请立即联系教务处理。</div>' : ''; })()
@@ -937,7 +1087,7 @@ function adminHTML(){
   var unErr = errs.length;
   var w = winState();
   var h = '<div class="pad"><h2 class="sec">教务后台</h2><p class="hint">已提交 '+ids.length+' / '+allStu().length+' 人 · 纸质已签 '+ids.filter(function(i){return r[i].paper==="已签"}).length+' 人</p>';
-  if(w==="closed") h += '<div class="lockbox"><b>窗口已关闭 · 数据已定格</b>截止时间：'+WIN_TEXT+'。学生端已锁定，仅可查看本人已提交内容，不再受理提交与修改；可据此制作班级纸质确认表。窗口关闭后不再开放「解锁重填」，个别变更须线下处理并同步更新纸质件。</div>';
+  if(w==="closed") h += '<div class="lockbox"><b>窗口已关闭 · 数据已定格</b>学生端已锁定，仅可查看本人已提交内容，不再受理提交与修改；可据此制作班级纸质确认表。窗口关闭后不再开放「解锁重填」，个别变更须线下处理并同步更新纸质件。</div>';
   if(API_ON){
     h += '<div class="card" style="margin:12px 0"><b style="font-size:14px">考试季管理</b>';
     h += '<p class="hint" style="margin:6px 0 10px">数据按考试季分开存放，各季互不干扰。当前：<b>'+esc(SERVER_SEASON||"")+'</b>（共 '+SEASON_LIST.length+' 季）</p>';
